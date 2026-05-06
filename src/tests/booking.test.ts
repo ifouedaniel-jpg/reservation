@@ -4,14 +4,27 @@ import { BookingError } from '@/lib/booking';
 // ── Mocks (hoisted before imports) ────────────────────────────────────────────
 
 const mockTransaction = vi.hoisted(() => vi.fn());
+const mockBookingFindUnique = vi.hoisted(() => vi.fn());
+const mockBookingUpdate = vi.hoisted(() => vi.fn());
 
 vi.mock('@/lib/db', () => ({
   prisma: {
     $transaction: mockTransaction,
+    booking: {
+      findUnique: mockBookingFindUnique,
+      update: mockBookingUpdate,
+    },
   },
 }));
 
-import { createBooking } from '@/lib/booking';
+import {
+  createBooking,
+  confirmBooking,
+  rejectBooking,
+  cancelBooking,
+  markCompleted,
+  markNoShow,
+} from '@/lib/booking';
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 
@@ -78,7 +91,24 @@ function makeTx({
   };
 }
 
-// ── Tests unitaires ───────────────────────────────────────────────────────────
+function makeAdminTx({ bookingStatus = 'PENDING' }: { bookingStatus?: string } = {}) {
+  const booking = { ...mockBooking, status: bookingStatus };
+  return {
+    booking: {
+      findUnique: vi.fn().mockResolvedValue(booking),
+      update: vi.fn().mockImplementation(({ data }: { data: Record<string, unknown> }) =>
+        Promise.resolve({ ...booking, ...data })
+      ),
+    },
+    timeSlot: {
+      update: vi.fn().mockResolvedValue({}),
+    },
+  };
+}
+
+type AdminTx = ReturnType<typeof makeAdminTx>;
+
+// ── createBooking ─────────────────────────────────────────────────────────────
 
 describe('createBooking', () => {
   beforeEach(() => {
@@ -166,7 +196,7 @@ describe('createBooking', () => {
   });
 });
 
-// ── Test de concurrence ───────────────────────────────────────────────────────
+// ── createBooking — concurrence ───────────────────────────────────────────────
 
 describe('createBooking — concurrence', () => {
   it('garantit qu\'un seul booking est créé parmi 10 appels simultanés sur le même slot', async () => {
@@ -200,5 +230,239 @@ describe('createBooking — concurrence', () => {
           f.reason.code === 'SLOT_NOT_AVAILABLE'
       )
     ).toBe(true);
+  });
+});
+
+// ── confirmBooking ────────────────────────────────────────────────────────────
+
+describe('confirmBooking', () => {
+  beforeEach(() => { vi.clearAllMocks(); });
+
+  it('passe le slot en BOOKED et le booking en CONFIRMED', async () => {
+    const tx = makeAdminTx({ bookingStatus: 'PENDING' });
+    mockTransaction.mockImplementation(async (fn: (tx: AdminTx) => Promise<unknown>) => fn(tx));
+
+    await confirmBooking('booking-1');
+
+    expect(tx.timeSlot.update).toHaveBeenCalledWith({
+      where: { id: 'slot-1' },
+      data: { status: 'BOOKED' },
+    });
+    expect(tx.booking.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'booking-1' },
+        data: expect.objectContaining({ status: 'CONFIRMED', confirmedAt: expect.any(Date) }),
+      })
+    );
+  });
+
+  it('lève INVALID_TRANSITION si le booking est CANCELLED', async () => {
+    const tx = makeAdminTx({ bookingStatus: 'CANCELLED' });
+    mockTransaction.mockImplementation(async (fn: (tx: AdminTx) => Promise<unknown>) => fn(tx));
+
+    await expect(confirmBooking('booking-1')).rejects.toMatchObject({
+      name: 'BookingTransitionError',
+      code: 'INVALID_TRANSITION',
+    });
+    expect(tx.timeSlot.update).not.toHaveBeenCalled();
+  });
+
+  it('lève INVALID_TRANSITION si le booking est déjà CONFIRMED', async () => {
+    const tx = makeAdminTx({ bookingStatus: 'CONFIRMED' });
+    mockTransaction.mockImplementation(async (fn: (tx: AdminTx) => Promise<unknown>) => fn(tx));
+
+    await expect(confirmBooking('booking-1')).rejects.toMatchObject({
+      name: 'BookingTransitionError',
+      code: 'INVALID_TRANSITION',
+    });
+  });
+
+  it('lève BOOKING_NOT_FOUND si le booking est introuvable', async () => {
+    const tx = { booking: { findUnique: vi.fn().mockResolvedValue(null), update: vi.fn() }, timeSlot: { update: vi.fn() } };
+    mockTransaction.mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(tx));
+
+    await expect(confirmBooking('nonexistent')).rejects.toMatchObject({
+      name: 'BookingTransitionError',
+      code: 'BOOKING_NOT_FOUND',
+    });
+  });
+});
+
+// ── rejectBooking ─────────────────────────────────────────────────────────────
+
+describe('rejectBooking', () => {
+  beforeEach(() => { vi.clearAllMocks(); });
+
+  it('libère le slot (OPEN) et passe le booking en REJECTED', async () => {
+    const tx = makeAdminTx({ bookingStatus: 'PENDING' });
+    mockTransaction.mockImplementation(async (fn: (tx: AdminTx) => Promise<unknown>) => fn(tx));
+
+    await rejectBooking('booking-1', 'Complet');
+
+    expect(tx.timeSlot.update).toHaveBeenCalledWith({
+      where: { id: 'slot-1' },
+      data: { status: 'OPEN' },
+    });
+    expect(tx.booking.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ status: 'REJECTED', cancellationReason: 'Complet' }),
+      })
+    );
+  });
+
+  it('lève INVALID_TRANSITION si le booking est CONFIRMED', async () => {
+    const tx = makeAdminTx({ bookingStatus: 'CONFIRMED' });
+    mockTransaction.mockImplementation(async (fn: (tx: AdminTx) => Promise<unknown>) => fn(tx));
+
+    await expect(rejectBooking('booking-1')).rejects.toMatchObject({
+      name: 'BookingTransitionError',
+      code: 'INVALID_TRANSITION',
+    });
+    expect(tx.timeSlot.update).not.toHaveBeenCalled();
+  });
+
+  it('lève INVALID_TRANSITION si le booking est déjà REJECTED', async () => {
+    const tx = makeAdminTx({ bookingStatus: 'REJECTED' });
+    mockTransaction.mockImplementation(async (fn: (tx: AdminTx) => Promise<unknown>) => fn(tx));
+
+    await expect(rejectBooking('booking-1')).rejects.toMatchObject({
+      name: 'BookingTransitionError',
+      code: 'INVALID_TRANSITION',
+    });
+  });
+});
+
+// ── cancelBooking ─────────────────────────────────────────────────────────────
+
+describe('cancelBooking', () => {
+  beforeEach(() => { vi.clearAllMocks(); });
+
+  it('libère le slot et passe le booking en CANCELLED depuis PENDING', async () => {
+    const tx = makeAdminTx({ bookingStatus: 'PENDING' });
+    mockTransaction.mockImplementation(async (fn: (tx: AdminTx) => Promise<unknown>) => fn(tx));
+
+    await cancelBooking('booking-1');
+
+    expect(tx.timeSlot.update).toHaveBeenCalledWith({
+      where: { id: 'slot-1' },
+      data: { status: 'OPEN' },
+    });
+    expect(tx.booking.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ status: 'CANCELLED', cancelledAt: expect.any(Date) }),
+      })
+    );
+  });
+
+  it('libère le slot et passe le booking en CANCELLED depuis CONFIRMED', async () => {
+    const tx = makeAdminTx({ bookingStatus: 'CONFIRMED' });
+    mockTransaction.mockImplementation(async (fn: (tx: AdminTx) => Promise<unknown>) => fn(tx));
+
+    await cancelBooking('booking-1', 'Empêchement');
+
+    expect(tx.timeSlot.update).toHaveBeenCalledWith({
+      where: { id: 'slot-1' },
+      data: { status: 'OPEN' },
+    });
+    expect(tx.booking.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ status: 'CANCELLED', cancellationReason: 'Empêchement' }),
+      })
+    );
+  });
+
+  it('lève INVALID_TRANSITION si le booking est REJECTED', async () => {
+    const tx = makeAdminTx({ bookingStatus: 'REJECTED' });
+    mockTransaction.mockImplementation(async (fn: (tx: AdminTx) => Promise<unknown>) => fn(tx));
+
+    await expect(cancelBooking('booking-1')).rejects.toMatchObject({
+      name: 'BookingTransitionError',
+      code: 'INVALID_TRANSITION',
+    });
+    expect(tx.timeSlot.update).not.toHaveBeenCalled();
+  });
+
+  it('lève INVALID_TRANSITION si le booking est déjà CANCELLED', async () => {
+    const tx = makeAdminTx({ bookingStatus: 'CANCELLED' });
+    mockTransaction.mockImplementation(async (fn: (tx: AdminTx) => Promise<unknown>) => fn(tx));
+
+    await expect(cancelBooking('booking-1')).rejects.toMatchObject({
+      name: 'BookingTransitionError',
+      code: 'INVALID_TRANSITION',
+    });
+  });
+});
+
+// ── markCompleted ─────────────────────────────────────────────────────────────
+
+describe('markCompleted', () => {
+  beforeEach(() => { vi.clearAllMocks(); });
+
+  it('passe le booking en COMPLETED depuis CONFIRMED', async () => {
+    mockBookingFindUnique.mockResolvedValue({ ...mockBooking, status: 'CONFIRMED' });
+    mockBookingUpdate.mockResolvedValue({ ...mockBooking, status: 'COMPLETED' });
+
+    await markCompleted('booking-1');
+
+    expect(mockBookingUpdate).toHaveBeenCalledWith({
+      where: { id: 'booking-1' },
+      data: { status: 'COMPLETED' },
+    });
+  });
+
+  it('lève INVALID_TRANSITION depuis PENDING', async () => {
+    mockBookingFindUnique.mockResolvedValue({ ...mockBooking, status: 'PENDING' });
+
+    await expect(markCompleted('booking-1')).rejects.toMatchObject({
+      name: 'BookingTransitionError',
+      code: 'INVALID_TRANSITION',
+    });
+    expect(mockBookingUpdate).not.toHaveBeenCalled();
+  });
+
+  it('lève BOOKING_NOT_FOUND si le booking est introuvable', async () => {
+    mockBookingFindUnique.mockResolvedValue(null);
+
+    await expect(markCompleted('nonexistent')).rejects.toMatchObject({
+      name: 'BookingTransitionError',
+      code: 'BOOKING_NOT_FOUND',
+    });
+  });
+});
+
+// ── markNoShow ────────────────────────────────────────────────────────────────
+
+describe('markNoShow', () => {
+  beforeEach(() => { vi.clearAllMocks(); });
+
+  it('passe le booking en NO_SHOW depuis CONFIRMED', async () => {
+    mockBookingFindUnique.mockResolvedValue({ ...mockBooking, status: 'CONFIRMED' });
+    mockBookingUpdate.mockResolvedValue({ ...mockBooking, status: 'NO_SHOW' });
+
+    await markNoShow('booking-1');
+
+    expect(mockBookingUpdate).toHaveBeenCalledWith({
+      where: { id: 'booking-1' },
+      data: { status: 'NO_SHOW' },
+    });
+  });
+
+  it('lève INVALID_TRANSITION depuis PENDING', async () => {
+    mockBookingFindUnique.mockResolvedValue({ ...mockBooking, status: 'PENDING' });
+
+    await expect(markNoShow('booking-1')).rejects.toMatchObject({
+      name: 'BookingTransitionError',
+      code: 'INVALID_TRANSITION',
+    });
+    expect(mockBookingUpdate).not.toHaveBeenCalled();
+  });
+
+  it('lève BOOKING_NOT_FOUND si le booking est introuvable', async () => {
+    mockBookingFindUnique.mockResolvedValue(null);
+
+    await expect(markNoShow('nonexistent')).rejects.toMatchObject({
+      name: 'BookingTransitionError',
+      code: 'BOOKING_NOT_FOUND',
+    });
   });
 });
