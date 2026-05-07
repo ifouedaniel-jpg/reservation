@@ -153,3 +153,19 @@ export async function markNoShow(id: string) {
   assertTransition(booking.status, 'NO_SHOW');
   return prisma.booking.update({ where: { id }, data: { status: 'NO_SHOW' } });
 }
+
+export async function anonymizeBooking(id: string) {
+  const booking = await prisma.booking.findUnique({ where: { id } });
+  if (!booking) throw new BookingTransitionError('BOOKING_NOT_FOUND');
+  return prisma.booking.update({
+    where: { id },
+    data: {
+      customerFirstName: '[supprimé]',
+      customerLastName: '[supprimé]',
+      customerPhone: '[supprimé]',
+      customerEmail: '[supprimé]',
+      customerInstagram: '[supprimé]',
+      notes: '[supprimé]',
+    },
+  });
+}

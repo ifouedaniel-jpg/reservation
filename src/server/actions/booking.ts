@@ -9,6 +9,7 @@ import {
   cancelBooking,
   markCompleted,
   markNoShow,
+  anonymizeBooking,
   BookingError,
   BookingTransitionError,
 } from '@/lib/booking';
@@ -126,5 +127,16 @@ export async function markNoShowAction(id: string): Promise<ActionResult> {
     return { ok: true };
   } catch (err) {
     return handleTransitionError(err, 'markNoShowAction');
+  }
+}
+
+export async function anonymizeBookingAction(id: string): Promise<ActionResult> {
+  await requireAdmin();
+  try {
+    await anonymizeBooking(id);
+    revalidateBooking(id);
+    return { ok: true };
+  } catch (err) {
+    return handleTransitionError(err, 'anonymizeBookingAction');
   }
 }

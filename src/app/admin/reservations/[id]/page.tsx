@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils';
 import BookingStatusBadge from '@/components/booking/BookingStatusBadge';
 import BookingActions from '@/components/admin/BookingActions';
 import NotificationActions from '@/components/admin/NotificationActions';
+import AnonymizeButton from '@/components/admin/AnonymizeButton';
 
 type Props = { params: Promise<{ id: string }> };
 
@@ -86,6 +87,11 @@ export default async function AdminReservationDetailPage({ params }: Props) {
 
       {/* Actions */}
       <BookingActions bookingId={booking.id} status={booking.status} />
+
+      {/* Anonymisation RGPD */}
+      {booking.customerFirstName !== '[supprimé]' && (
+        <AnonymizeButton bookingId={booking.id} />
+      )}
 
       {/* Créneau & Prestation */}
       <section className="space-y-2">

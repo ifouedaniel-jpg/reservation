@@ -266,8 +266,16 @@ export default function BookingForm({ service, slot }: Props) {
         <div className="space-y-1">
           <Label htmlFor="gdprConsent" className="font-normal leading-snug">
             J&apos;accepte que mes données soient conservées 3 ans après mon dernier
-            rendez-vous, conformément à la réglementation CNIL. J&apos;ai le droit
-            d&apos;accès et de suppression de mes données.
+            rendez-vous, conformément à notre{' '}
+            <a
+              href="/confidentialite"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline underline-offset-2"
+            >
+              politique de confidentialité
+            </a>
+            . J&apos;ai le droit d&apos;accès et de suppression de mes données.
           </Label>
           {errors.gdprConsent && (
             <p className="text-xs text-destructive">{errors.gdprConsent.message}</p>
