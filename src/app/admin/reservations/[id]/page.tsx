@@ -6,6 +6,7 @@ import { formatParis } from '@/lib/time';
 import { cn } from '@/lib/utils';
 import BookingStatusBadge from '@/components/booking/BookingStatusBadge';
 import BookingActions from '@/components/admin/BookingActions';
+import NotificationActions from '@/components/admin/NotificationActions';
 
 type Props = { params: Promise<{ id: string }> };
 
@@ -157,32 +158,53 @@ export default async function AdminReservationDetailPage({ params }: Props) {
                   <th className="px-4 py-2 text-left font-medium">Canal</th>
                   <th className="px-4 py-2 text-left font-medium">Statut</th>
                   <th className="px-4 py-2 text-left font-medium">Date</th>
+                  <th className="px-4 py-2 text-left font-medium">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y">
-                {booking.notifications.map((n) => (
-                  <tr key={n.id}>
-                    <td className="px-4 py-2">
-                      {NOTIF_TYPE_LABELS[n.type] ?? n.type}
-                    </td>
-                    <td className="px-4 py-2">
-                      {CHANNEL_LABELS[n.channel] ?? n.channel}
-                    </td>
-                    <td className="px-4 py-2">
-                      <span
-                        className={cn(
-                          'inline-flex rounded-full px-2 py-0.5 text-xs font-medium',
-                          NOTIF_STATUS_STYLES[n.status] ?? 'bg-gray-100 text-gray-600'
+                {booking.notifications.map((n) => {
+                  let link: string | undefined;
+                  let message: string | undefined;
+                  if (n.status === 'MANUAL_REQUIRED') {
+                    try {
+                      const p = JSON.parse(n.payload) as { link?: string; message?: string };
+                      link = p.link;
+                      message = p.message;
+                    } catch {
+                      // payload non parseable
+                    }
+                  }
+                  return (
+                    <tr key={n.id}>
+                      <td className="px-4 py-2">{NOTIF_TYPE_LABELS[n.type] ?? n.type}</td>
+                      <td className="px-4 py-2">{CHANNEL_LABELS[n.channel] ?? n.channel}</td>
+                      <td className="px-4 py-2">
+                        <span
+                          className={cn(
+                            'inline-flex rounded-full px-2 py-0.5 text-xs font-medium',
+                            NOTIF_STATUS_STYLES[n.status] ?? 'bg-gray-100 text-gray-600'
+                          )}
+                        >
+                          {n.status}
+                        </span>
+                      </td>
+                      <td className="px-4 py-2 text-muted-foreground whitespace-nowrap">
+                        {formatParis(n.sentAt, 'd MMM HH:mm')}
+                      </td>
+                      <td className="px-4 py-2">
+                        {n.status === 'MANUAL_REQUIRED' && (
+                          <NotificationActions
+                            notificationId={n.id}
+                            bookingId={booking.id}
+                            channel={n.channel}
+                            link={link}
+                            message={message}
+                          />
                         )}
-                      >
-                        {n.status}
-                      </span>
-                    </td>
-                    <td className="px-4 py-2 text-muted-foreground whitespace-nowrap">
-                      {formatParis(n.sentAt, 'd MMM HH:mm')}
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

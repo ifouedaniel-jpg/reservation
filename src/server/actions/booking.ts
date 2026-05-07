@@ -13,6 +13,8 @@ import {
   BookingTransitionError,
 } from '@/lib/booking';
 import { requireAdmin } from '@/lib/auth';
+import { dispatch } from '@/notifications/send';
+import type { NotificationType } from '@/notifications/messages';
 
 type ActionResult = { ok: true } | { ok: false; error: string };
 
@@ -28,10 +30,7 @@ export async function submitBooking(input: BookingInput): Promise<SubmitResult> 
 
   try {
     const booking = await createBooking(parsed.data);
-
-    // TODO (T1.10): déclencher la notification BOOKING_RECEIVED
-    console.log('[notifications] BOOKING_RECEIVED pour booking', booking.id);
-
+    await notify(booking.id, 'BOOKING_RECEIVED');
     return { ok: true, data: { publicCode: booking.publicCode } };
   } catch (err) {
     if (err instanceof BookingError) {
@@ -64,11 +63,19 @@ function revalidateBooking(id: string) {
   revalidatePath('/ma-reservation', 'layout');
 }
 
+async function notify(bookingId: string, type: NotificationType) {
+  try {
+    await dispatch(bookingId, type);
+  } catch (err) {
+    console.error(`[notifications] dispatch ${type} failed`, err);
+  }
+}
+
 export async function confirmBookingAction(id: string): Promise<ActionResult> {
   await requireAdmin();
   try {
     await confirmBooking(id);
-    // TODO (T1.10): déclencher notification BOOKING_CONFIRMED
+    await notify(id, 'BOOKING_CONFIRMED');
     revalidateBooking(id);
     return { ok: true };
   } catch (err) {
@@ -80,7 +87,7 @@ export async function rejectBookingAction(id: string, reason?: string): Promise<
   await requireAdmin();
   try {
     await rejectBooking(id, reason);
-    // TODO (T1.10): déclencher notification BOOKING_REJECTED
+    await notify(id, 'BOOKING_REJECTED');
     revalidateBooking(id);
     return { ok: true };
   } catch (err) {
@@ -92,7 +99,7 @@ export async function cancelBookingAction(id: string, reason?: string): Promise<
   await requireAdmin();
   try {
     await cancelBooking(id, reason);
-    // TODO (T1.10): déclencher notification BOOKING_CANCELLED
+    await notify(id, 'BOOKING_CANCELLED');
     revalidateBooking(id);
     return { ok: true };
   } catch (err) {
