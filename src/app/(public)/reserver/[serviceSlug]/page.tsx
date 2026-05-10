@@ -3,7 +3,8 @@ import Link from "next/link"
 import { notFound } from "next/navigation"
 import { addWeeks } from "date-fns"
 import { prisma } from "@/lib/db"
-import SlotPicker from "@/components/SlotPicker"
+import { parsePriceMatrix, getMinPriceCents } from "@/schemas/priceMatrix"
+import { ReservationFlow } from "@/components/booking/ReservationFlow"
 
 type Props = { params: Promise<{ serviceSlug: string }> }
 
@@ -61,9 +62,14 @@ export default async function ReserverPage({ params }: Props) {
       </Link>
 
       <div className="mb-6 space-y-1">
-        <h1 className="text-2xl font-semibold">Choisir un créneau</h1>
+        <h1 className="text-2xl font-semibold">Réserver</h1>
         <p className="text-sm text-muted-foreground">
-          {service.name} · {formatDuration(service.durationMinutes)} · {formatPrice(service.priceCents)}
+          {service.name} · {formatDuration(service.durationMinutes)} ·{' '}
+          {(() => {
+            const matrix = parsePriceMatrix(service.priceMatrix)
+            if (matrix) return `À partir de ${formatPrice(getMinPriceCents(matrix))}`
+            return formatPrice(service.priceCents)
+          })()}
         </p>
       </div>
 
@@ -74,7 +80,11 @@ export default async function ReserverPage({ params }: Props) {
           Revenez bientôt ou contactez-nous directement.
         </p>
       ) : (
-        <SlotPicker serviceSlug={service.slug} slots={slots} />
+        <ReservationFlow
+          serviceSlug={service.slug}
+          slots={slots}
+          priceMatrixJson={service.priceMatrix ?? null}
+        />
       )}
     </div>
   )

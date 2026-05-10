@@ -7,6 +7,7 @@ export const serviceInputSchema = z.object({
   priceCents: z.number().int().positive('Prix invalide'),
   active: z.boolean(),
   sortOrder: z.number().int().min(0, 'Ordre invalide'),
+  priceMatrix: z.string().nullable().optional(),
 });
 
 export type ServiceInput = z.infer<typeof serviceInputSchema>;

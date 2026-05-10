@@ -5,21 +5,24 @@ const businessName = process.env.NEXT_PUBLIC_BUSINESS_NAME ?? 'Salon';
 export default function PublicLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-screen flex-col">
-      <header className="sticky top-0 z-10 border-b bg-background/95 backdrop-blur">
+      <header className="sticky top-0 z-10 border-b border-rose-100 bg-white/95 shadow-sm backdrop-blur">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
-          <Link href="/" className="text-base font-semibold tracking-tight">
+          <Link
+            href="/"
+            className="text-lg font-bold tracking-tight text-zinc-900 transition-colors hover:text-rose-600"
+          >
             {businessName}
           </Link>
           <nav className="flex items-center gap-6">
             <Link
               href="/prestations"
-              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+              className="text-sm font-medium text-zinc-600 transition-colors hover:text-rose-600"
             >
               Prestations
             </Link>
             <Link
               href="/ma-reservation"
-              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+              className="text-sm font-medium text-zinc-600 transition-colors hover:text-rose-600"
             >
               Ma réservation
             </Link>
@@ -29,16 +32,17 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
 
       <main className="flex-1">{children}</main>
 
-      <footer className="border-t py-6 text-center text-sm text-muted-foreground">
-        <div className="mx-auto max-w-5xl px-4">
+      <footer className="border-t bg-zinc-950 py-8 text-sm text-zinc-500">
+        <div className="mx-auto max-w-5xl px-4 text-center">
+          <p className="mb-2 font-semibold text-white">{businessName}</p>
           <p>
             &copy; {new Date().getFullYear()} {businessName}
             {' · '}
-            <Link href="/mentions-legales" className="hover:underline">
+            <Link href="/mentions-legales" className="transition-colors hover:text-zinc-300">
               Mentions légales
             </Link>
             {' · '}
-            <Link href="/confidentialite" className="hover:underline">
+            <Link href="/confidentialite" className="transition-colors hover:text-zinc-300">
               Politique de confidentialité
             </Link>
           </p>

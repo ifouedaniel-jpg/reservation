@@ -17,19 +17,31 @@ model Admin {
 }
 
 model Service {
-  id              String    @id @default(cuid())
-  slug            String    @unique
+  id              String         @id @default(cuid())
+  slug            String         @unique
   name            String
   description     String
   durationMinutes Int
   priceCents      Int
-  imageUrl        String?
-  imagePublicId   String?
-  active          Boolean   @default(true)
-  sortOrder       Int       @default(0)
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  priceMatrix     String?        // JSON: PriceMatrix (grid | options)
+  active          Boolean        @default(true)
+  sortOrder       Int            @default(0)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
   bookings        Booking[]
+  images          ServiceImage[]
+}
+
+model ServiceImage {
+  id        String   @id @default(cuid())
+  serviceId String
+  service   Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  url       String
+  publicId  String
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@index([serviceId, order])
 }
 
 model RecurringAvailability {
@@ -73,6 +85,7 @@ model Booking {
   customerEmail       String?
   preferredChannel    String    // WHATSAPP | INSTAGRAM | SMS | EMAIL
   notes               String?
+  selectedOptions     String?   // JSON: { type, size?, length?, optionIds?, choiceId? }
 
   serviceId           String
   service             Service   @relation(fields: [serviceId], references: [id])

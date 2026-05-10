@@ -8,6 +8,9 @@ import { ToggleServiceButton } from '@/components/admin/ToggleServiceButton';
 export default async function PrestationsPage() {
   const services = await prisma.service.findMany({
     orderBy: [{ active: 'desc' }, { sortOrder: 'asc' }],
+    include: {
+      images: { select: { url: true }, orderBy: { order: 'asc' }, take: 1 },
+    },
   });
 
   return (
@@ -35,52 +38,45 @@ export default async function PrestationsPage() {
               </tr>
             </thead>
             <tbody>
-              {services.map((service) => (
-                <tr key={service.id} className="border-b last:border-0 hover:bg-muted/30">
-                  <td className="px-4 py-3">
-                    {service.imageUrl ? (
-                      <div className="relative h-12 w-12 overflow-hidden rounded-md bg-muted">
-                        <Image
-                          src={service.imageUrl}
-                          alt={service.name}
-                          fill
-                          className="object-cover"
-                        />
-                      </div>
-                    ) : (
-                      <div className="h-12 w-12 rounded-md bg-muted" />
-                    )}
-                  </td>
-                  <td className="px-4 py-3 font-medium">{service.name}</td>
-                  <td className="px-4 py-3 text-muted-foreground">{service.durationMinutes} min</td>
-                  <td className="px-4 py-3 text-muted-foreground">
-                    {(service.priceCents / 100).toLocaleString('fr-FR', {
-                      style: 'currency',
-                      currency: 'EUR',
-                    })}
-                  </td>
-                  <td className="px-4 py-3">
-                    <span
-                      className={
+              {services.map((service) => {
+                const firstImage = service.images[0];
+                return (
+                  <tr key={service.id} className="border-b last:border-0 hover:bg-muted/30">
+                    <td className="px-4 py-3">
+                      {firstImage ? (
+                        <div className="relative h-12 w-12 overflow-hidden rounded-md bg-muted">
+                          <Image src={firstImage.url} alt={service.name} fill className="object-cover" />
+                        </div>
+                      ) : (
+                        <div className="h-12 w-12 rounded-md bg-muted" />
+                      )}
+                    </td>
+                    <td className="px-4 py-3 font-medium">{service.name}</td>
+                    <td className="px-4 py-3 text-muted-foreground">{service.durationMinutes} min</td>
+                    <td className="px-4 py-3 text-muted-foreground">
+                      {(service.priceCents / 100).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={
                         service.active
                           ? 'rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700'
                           : 'rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-500'
-                      }
-                    >
-                      {service.active ? 'Active' : 'Inactive'}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex justify-end gap-2">
-                      <Button variant="outline" size="sm" asChild>
-                        <Link href={`/admin/prestations/${service.id}`}>Éditer</Link>
-                      </Button>
-                      <ToggleServiceButton id={service.id} active={service.active} />
-                      <DeleteServiceButton id={service.id} name={service.name} />
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                      }>
+                        {service.active ? 'Active' : 'Inactive'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex justify-end gap-2">
+                        <Button variant="outline" size="sm" asChild>
+                          <Link href={`/admin/prestations/${service.id}`}>Éditer</Link>
+                        </Button>
+                        <ToggleServiceButton id={service.id} active={service.active} />
+                        <DeleteServiceButton id={service.id} name={service.name} />
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

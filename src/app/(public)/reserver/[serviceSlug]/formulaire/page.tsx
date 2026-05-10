@@ -3,10 +3,11 @@ import Link from "next/link"
 import { notFound } from "next/navigation"
 import { prisma } from "@/lib/db"
 import BookingForm from "@/components/booking/BookingForm"
+import { parsePriceMatrix, selectedOptionsSchema, calculatePrice, getDurationMinutes } from "@/schemas/priceMatrix"
 
 type Props = {
   params: Promise<{ serviceSlug: string }>
-  searchParams: Promise<{ slot?: string }>
+  searchParams: Promise<{ slot?: string; selectedOptions?: string }>
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -18,7 +19,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function FormulaireReservationPage({ params, searchParams }: Props) {
   const { serviceSlug } = await params
-  const { slot: slotId } = await searchParams
+  const { slot: slotId, selectedOptions: selectedOptionsJson } = await searchParams
 
   if (!slotId) notFound()
 
@@ -28,6 +29,27 @@ export default async function FormulaireReservationPage({ params, searchParams }
   ])
 
   if (!service || !slot) notFound()
+
+  let priceCentsAtBooking = service.priceCents
+  let estimatedDurationMinutes: number | null = null
+  let optionsSummary: string | null = null
+
+  if (selectedOptionsJson && service.priceMatrix) {
+    const matrix = parsePriceMatrix(service.priceMatrix)
+    if (matrix) {
+      try {
+        const opts = selectedOptionsSchema.parse(JSON.parse(selectedOptionsJson))
+        priceCentsAtBooking = calculatePrice(matrix, opts)
+        estimatedDurationMinutes = getDurationMinutes(matrix, opts)
+        const optLabels = opts.optionIds
+          .map((id) => matrix.options.find((o) => o.id === id)?.label)
+          .filter(Boolean)
+        optionsSummary = [opts.size, opts.length, ...optLabels].join(' · ')
+      } catch {
+        // fall back to base price/duration
+      }
+    }
+  }
 
   return (
     <div className="mx-auto max-w-xl px-4 py-10">
@@ -45,12 +67,12 @@ export default async function FormulaireReservationPage({ params, searchParams }
           id: service.id,
           name: service.name,
           durationMinutes: service.durationMinutes,
-          priceCents: service.priceCents,
+          estimatedDurationMinutes,
+          priceCentsAtBooking,
+          optionsSummary,
         }}
-        slot={{
-          id: slot.id,
-          startsAt: slot.startsAt.toISOString(),
-        }}
+        slot={{ id: slot.id, startsAt: slot.startsAt.toISOString() }}
+        selectedOptionsJson={selectedOptionsJson ?? null}
       />
     </div>
   )

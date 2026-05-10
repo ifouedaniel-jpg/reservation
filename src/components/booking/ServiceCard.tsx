@@ -1,7 +1,12 @@
+'use client';
+
+import { useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { parsePriceMatrix, getMinPriceCents } from '@/schemas/priceMatrix';
+import { ImageLightbox } from '@/components/booking/ImageLightbox';
 
 type Props = {
   service: {
@@ -10,7 +15,8 @@ type Props = {
     description: string;
     durationMinutes: number;
     priceCents: number;
-    imageUrl: string | null;
+    priceMatrix: string | null;
+    images: { url: string }[];
   };
 };
 
@@ -26,38 +32,83 @@ function formatPrice(cents: number): string {
 }
 
 export function ServiceCard({ service }: Props) {
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const firstImage = service.images[0];
+  const hasImages = service.images.length > 0;
+
+  const lightboxImages = service.images.map((img) => ({ url: img.url, alt: service.name }));
+
   return (
-    <Card className="flex flex-col overflow-hidden">
-      <div className="relative aspect-[4/3] w-full bg-muted">
-        {service.imageUrl ? (
-          <Image
-            src={service.imageUrl}
-            alt={service.name}
-            fill
-            className="object-cover"
-            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-          />
-        ) : (
-          <div className="flex h-full items-center justify-center bg-gradient-to-br from-rose-50 to-pink-100">
-            <span className="text-4xl text-rose-200">✂</span>
-          </div>
-        )}
-      </div>
-
-      <CardContent className="flex flex-1 flex-col gap-2 p-4">
-        <h3 className="font-semibold leading-tight">{service.name}</h3>
-        <p className="line-clamp-2 text-sm text-muted-foreground">{service.description}</p>
-        <div className="mt-auto flex items-center gap-3 pt-2 text-sm text-muted-foreground">
-          <span>{formatDuration(service.durationMinutes)}</span>
-          <span className="text-foreground font-medium">{formatPrice(service.priceCents)}</span>
+    <>
+      <Card className="group flex flex-col overflow-hidden border-0 shadow-md transition-shadow duration-300 hover:shadow-xl">
+        {/* Image cliquable */}
+        <div
+          className={cn(
+            'relative aspect-[4/3] w-full overflow-hidden bg-muted',
+            hasImages && 'cursor-zoom-in',
+          )}
+          onClick={() => hasImages && setLightboxOpen(true)}
+          role={hasImages ? 'button' : undefined}
+          aria-label={hasImages ? `Agrandir les photos de ${service.name}` : undefined}
+          tabIndex={hasImages ? 0 : undefined}
+          onKeyDown={(e) => {
+            if (hasImages && (e.key === 'Enter' || e.key === ' ')) setLightboxOpen(true);
+          }}
+        >
+          {firstImage ? (
+            <>
+              <Image
+                src={firstImage.url}
+                alt={service.name}
+                fill
+                className="object-cover transition-transform duration-500 group-hover:scale-105"
+                sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+              />
+              {service.images.length > 1 && (
+                <span className="absolute bottom-2 right-2 rounded-full bg-black/50 px-2 py-0.5 text-xs text-white backdrop-blur-sm">
+                  {service.images.length} photos
+                </span>
+              )}
+            </>
+          ) : (
+            <div className="flex h-full items-center justify-center bg-gradient-to-br from-rose-50 to-pink-100">
+              <span className="text-5xl text-rose-300">✂</span>
+            </div>
+          )}
         </div>
-      </CardContent>
 
-      <CardFooter className="p-4 pt-0">
-        <Button asChild className="w-full">
-          <Link href={`/reserver/${service.slug}`}>Réserver</Link>
-        </Button>
-      </CardFooter>
-    </Card>
+        <CardContent className="flex flex-1 flex-col gap-2 p-5">
+          <h3 className="text-lg font-semibold leading-tight text-zinc-900">{service.name}</h3>
+          <p className="line-clamp-2 text-sm text-zinc-500">{service.description}</p>
+          <div className="mt-auto flex items-center justify-between pt-3">
+            <span className="text-sm text-zinc-400">{formatDuration(service.durationMinutes)}</span>
+            <span className="text-lg font-bold text-rose-600">
+              {(() => {
+                const matrix = parsePriceMatrix(service.priceMatrix);
+                if (matrix) return `À partir de ${formatPrice(getMinPriceCents(matrix))}`;
+                return formatPrice(service.priceCents);
+              })()}
+            </span>
+          </div>
+        </CardContent>
+
+        <CardFooter className="p-5 pt-0">
+          <Button asChild className="w-full">
+            <Link href={`/reserver/${service.slug}`}>Réserver →</Link>
+          </Button>
+        </CardFooter>
+      </Card>
+
+      {lightboxOpen && (
+        <ImageLightbox
+          images={lightboxImages}
+          onClose={() => setLightboxOpen(false)}
+        />
+      )}
+    </>
   );
+}
+
+function cn(...classes: (string | undefined | false)[]) {
+  return classes.filter(Boolean).join(' ');
 }

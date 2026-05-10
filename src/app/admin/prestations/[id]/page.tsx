@@ -19,7 +19,8 @@ export default async function EditPrestationPage({ params }: Props) {
       priceCents: true,
       active: true,
       sortOrder: true,
-      imageUrl: true,
+      priceMatrix: true,
+      images: { select: { id: true, url: true, order: true }, orderBy: { order: 'asc' } },
     },
   });
   if (!service) notFound();

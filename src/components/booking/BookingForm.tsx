@@ -27,7 +27,9 @@ type ServiceSummary = {
   id: string;
   name: string;
   durationMinutes: number;
-  priceCents: number;
+  estimatedDurationMinutes: number | null;
+  priceCentsAtBooking: number;
+  optionsSummary: string | null;
 };
 
 type SlotSummary = {
@@ -38,6 +40,7 @@ type SlotSummary = {
 type Props = {
   service: ServiceSummary;
   slot: SlotSummary;
+  selectedOptionsJson?: string | null;
 };
 
 function formatDuration(minutes: number): string {
@@ -51,7 +54,7 @@ function formatPrice(cents: number): string {
   return (cents / 100).toLocaleString("fr-FR", { style: "currency", currency: "EUR" });
 }
 
-export default function BookingForm({ service, slot }: Props) {
+export default function BookingForm({ service, slot, selectedOptionsJson }: Props) {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -72,6 +75,7 @@ export default function BookingForm({ service, slot }: Props) {
       serviceId: service.id,
       timeSlotId: slot.id,
       preferredChannel: "WHATSAPP",
+      selectedOptionsJson: selectedOptionsJson ?? undefined,
     },
   });
 
@@ -98,15 +102,20 @@ export default function BookingForm({ service, slot }: Props) {
       {/* Récap */}
       <div className="rounded-xl border bg-muted/40 p-4 space-y-1 text-sm">
         <p className="font-medium">{service.name}</p>
+        {service.optionsSummary && (
+          <p className="text-muted-foreground">{service.optionsSummary}</p>
+        )}
         <p className="text-muted-foreground capitalize">{slotDisplay}</p>
         <p className="text-muted-foreground">
-          {formatDuration(service.durationMinutes)} · {formatPrice(service.priceCents)}
+          {formatDuration(service.estimatedDurationMinutes ?? service.durationMinutes)} ·{" "}
+          <span className="font-medium text-foreground">{formatPrice(service.priceCentsAtBooking)}</span>
         </p>
       </div>
 
       {/* Champs cachés */}
       <input type="hidden" {...register("serviceId")} />
       <input type="hidden" {...register("timeSlotId")} />
+      <input type="hidden" {...register("selectedOptionsJson")} />
 
       {/* Prénom / Nom */}
       <div className="grid grid-cols-2 gap-4">
@@ -152,7 +161,6 @@ export default function BookingForm({ service, slot }: Props) {
             aria-invalid={!!errors.phone}
             className="rounded-l-none"
             onChange={(e) => {
-              // Strip non-digits, then format as E.164
               const digits = e.target.value.replace(/\D/g, "");
               setValue("phone", digits ? `+33${digits}` : "", { shouldValidate: true });
             }}

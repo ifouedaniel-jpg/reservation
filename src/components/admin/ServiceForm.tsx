@@ -1,13 +1,16 @@
 'use client';
 
-import { useActionState, useState, useRef } from 'react';
-import Image from 'next/image';
+import { useActionState, useState } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { PriceMatrixBuilder } from '@/components/admin/PriceMatrixBuilder';
+import { ServiceImageGallery } from '@/components/admin/ServiceImageGallery';
+import { parsePriceMatrix } from '@/schemas/priceMatrix';
 
 type ActionState = { ok: false; error: string } | null;
+type ServiceImage = { id: string; url: string; order: number };
 
 type ServiceData = {
   id: string;
@@ -17,7 +20,8 @@ type ServiceData = {
   priceCents: number;
   active: boolean;
   sortOrder: number;
-  imageUrl: string | null;
+  priceMatrix: string | null;
+  images: ServiceImage[];
 };
 
 type Props = {
@@ -27,19 +31,10 @@ type Props = {
 
 export function ServiceForm({ action, service }: Props) {
   const [state, formAction, isPending] = useActionState(action, null);
-  const [preview, setPreview] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (file) {
-      setPreview(URL.createObjectURL(file));
-    } else {
-      setPreview(null);
-    }
-  }
+  const initialHasGrid = !!parsePriceMatrix(service?.priceMatrix ?? null);
+  const [isGrid, setIsGrid] = useState(initialHasGrid);
 
-  const displayImage = preview ?? service?.imageUrl ?? null;
   const priceEuros = service ? (service.priceCents / 100).toFixed(2) : '';
 
   return (
@@ -66,19 +61,27 @@ export function ServiceForm({ action, service }: Props) {
       </div>
 
       <div className="grid grid-cols-2 gap-4">
+        {/* Durée : visible uniquement en mode prix fixe */}
+        {!isGrid && (
+          <div className="space-y-2">
+            <Label htmlFor="durationMinutes">Durée (min)</Label>
+            <Input
+              id="durationMinutes"
+              name="durationMinutes"
+              type="number"
+              min={1}
+              required
+              defaultValue={service?.durationMinutes}
+            />
+          </div>
+        )}
+        {isGrid && (
+          /* Champ caché pour satisfaire la validation serveur */
+          <input type="hidden" name="durationMinutes" value={service?.durationMinutes ?? 0} />
+        )}
+
         <div className="space-y-2">
-          <Label htmlFor="durationMinutes">Durée (min)</Label>
-          <Input
-            id="durationMinutes"
-            name="durationMinutes"
-            type="number"
-            min={1}
-            required
-            defaultValue={service?.durationMinutes}
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="priceEuros">Prix (€)</Label>
+          <Label htmlFor="priceEuros">Prix de base (€)</Label>
           <Input
             id="priceEuros"
             name="priceEuros"
@@ -94,53 +97,30 @@ export function ServiceForm({ action, service }: Props) {
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label htmlFor="sortOrder">Ordre d&apos;affichage</Label>
-          <Input
-            id="sortOrder"
-            name="sortOrder"
-            type="number"
-            min={0}
-            defaultValue={service?.sortOrder ?? 0}
-          />
+          <Input id="sortOrder" name="sortOrder" type="number" min={0} defaultValue={service?.sortOrder ?? 0} />
         </div>
         <div className="flex items-end pb-1">
           <label className="flex cursor-pointer items-center gap-2">
-            <input
-              type="checkbox"
-              name="active"
-              value="on"
-              defaultChecked={service ? service.active : true}
-              className="h-4 w-4 rounded"
-            />
+            <input type="checkbox" name="active" value="on" defaultChecked={service ? service.active : true} className="h-4 w-4 rounded" />
             <span className="text-sm font-medium">Active</span>
           </label>
         </div>
       </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="image">Image</Label>
-        {displayImage && (
-          <div className="relative h-40 w-40 overflow-hidden rounded-md border">
-            <Image
-              src={displayImage}
-              alt="Aperçu"
-              fill
-              className="object-cover"
-              unoptimized={!!preview}
-            />
-          </div>
-        )}
-        <Input
-          ref={fileInputRef}
-          id="image"
-          name="image"
-          type="file"
-          accept="image/*"
-          onChange={handleFileChange}
-        />
+      <PriceMatrixBuilder
+        initialJson={service?.priceMatrix ?? null}
+        onTypeChange={(t) => setIsGrid(t === 'grid')}
+      />
+
+      {/* Images */}
+      <div className="space-y-3">
+        <Label>Photos</Label>
+        {service && service.images.length > 0 && <ServiceImageGallery images={service.images} />}
+        <Input id="images" name="images" type="file" accept="image/*" multiple />
         <p className="text-xs text-muted-foreground">
-          {service?.imageUrl
-            ? "Laisser vide pour conserver l'image actuelle."
-            : 'Formats acceptés : JPG, PNG, WebP.'}
+          {service?.images && service.images.length > 0
+            ? 'Sélectionner des fichiers pour ajouter des photos. Survoler une photo pour la supprimer.'
+            : 'Formats acceptés : JPG, PNG, WebP. Vous pouvez sélectionner plusieurs photos.'}
         </p>
       </div>
 

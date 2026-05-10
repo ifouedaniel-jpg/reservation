@@ -19,9 +19,11 @@ type Slot = {
 type Props = {
   serviceSlug: string
   slots: Slot[]
+  extraParams?: Record<string, string>
+  disabled?: boolean
 }
 
-export default function SlotPicker({ serviceSlug, slots }: Props) {
+export default function SlotPicker({ serviceSlug, slots, extraParams, disabled }: Props) {
   const router = useRouter()
   const [selectedDate, setSelectedDate] = useState<Date | undefined>()
   const [selectedSlotId, setSelectedSlotId] = useState<string | null>(null)
@@ -59,7 +61,16 @@ export default function SlotPicker({ serviceSlug, slots }: Props) {
 
   const handleContinue = () => {
     if (!selectedSlotId) return
-    router.push(`/reserver/${serviceSlug}/formulaire?slot=${selectedSlotId}`)
+    const params = new URLSearchParams({ slot: selectedSlotId, ...extraParams })
+    router.push(`/reserver/${serviceSlug}/formulaire?${params.toString()}`)
+  }
+
+  if (disabled) {
+    return (
+      <div className="rounded-xl border bg-muted/40 py-8 text-center text-sm text-muted-foreground">
+        Sélectionnez vos options ci-dessus pour choisir un créneau.
+      </div>
+    )
   }
 
   return (

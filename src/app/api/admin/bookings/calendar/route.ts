@@ -34,8 +34,8 @@ export async function GET(request: Request) {
       title: `${b.customerFirstName} — ${b.service.name}`,
       start: formatInTimeZone(b.timeSlot.startsAt, PARIS_TZ, "yyyy-MM-dd'T'HH:mm:ss"),
       end: formatInTimeZone(endTime, PARIS_TZ, "yyyy-MM-dd'T'HH:mm:ss"),
-      backgroundColor: b.status === 'PENDING' ? '#f97316' : '#22c55e',
-      borderColor: b.status === 'PENDING' ? '#ea580c' : '#16a34a',
+      backgroundColor: b.status === 'PENDING' ? '#f97316' : '#ef4444',
+      borderColor: b.status === 'PENDING' ? '#ea580c' : '#dc2626',
       textColor: '#ffffff',
       extendedProps: { bookingId: b.id },
     };

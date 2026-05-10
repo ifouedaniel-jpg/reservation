@@ -19,6 +19,7 @@ export const bookingInputSchema = z
     }),
     serviceId: z.string().min(1),
     timeSlotId: z.string().min(1),
+    selectedOptionsJson: z.string().optional(),
   })
   .superRefine((data, ctx) => {
     if (data.preferredChannel === 'EMAIL' && !data.email) {

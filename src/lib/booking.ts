@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/db';
 import { Prisma } from '@/generated/prisma/client';
 import type { BookingInput } from '@/schemas/booking';
+import { parsePriceMatrix, selectedOptionsSchema, calculatePrice } from '@/schemas/priceMatrix';
 
 export class BookingError extends Error {
   constructor(public readonly code: 'SLOT_NOT_AVAILABLE' | 'SERVICE_NOT_FOUND') {
@@ -46,6 +47,22 @@ export async function createBooking(input: BookingInput) {
         throw new BookingError('SLOT_NOT_AVAILABLE');
       }
 
+      // Calculate final price (server-side, never trust client)
+      let priceCentsAtBooking = service.priceCents;
+      let storedOptions: string | null = null;
+      if (input.selectedOptionsJson && service.priceMatrix) {
+        const matrix = parsePriceMatrix(service.priceMatrix);
+        if (matrix) {
+          try {
+            const opts = selectedOptionsSchema.parse(JSON.parse(input.selectedOptionsJson));
+            priceCentsAtBooking = calculatePrice(matrix, opts);
+            storedOptions = input.selectedOptionsJson;
+          } catch {
+            // Fall back to base price
+          }
+        }
+      }
+
       await tx.timeSlot.update({
         where: { id: slot.id },
         data: { status: 'PENDING' },
@@ -60,9 +77,10 @@ export async function createBooking(input: BookingInput) {
           customerEmail: input.email ?? null,
           preferredChannel: input.preferredChannel,
           notes: input.notes ?? null,
+          selectedOptions: storedOptions,
           serviceId: input.serviceId,
           timeSlotId: input.timeSlotId,
-          priceCentsAtBooking: service.priceCents,
+          priceCentsAtBooking,
           status: 'PENDING',
         },
       });
