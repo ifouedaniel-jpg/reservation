@@ -64,9 +64,9 @@ model BlockedDate {
 
 model TimeSlot {
   id        String    @id @default(cuid())
-  startsAt  DateTime  @unique // toujours stocké en UTC
-  endsAt    DateTime
-  status    String    @default("OPEN") // OPEN | CLOSED | PENDING | BOOKED
+  startsAt  DateTime  @unique // toujours stocké en UTC — début de la fenêtre de dispo
+  endsAt    DateTime           // fin de la fenêtre de dispo
+  status    String    @default("OPEN") // OPEN | CLOSED
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   bookings  Booking[]
@@ -79,11 +79,7 @@ model Booking {
   publicCode          String    @unique @default(cuid())
 
   customerFirstName   String
-  customerLastName    String
   customerPhone       String
-  customerInstagram   String?
-  customerEmail       String?
-  preferredChannel    String    // WHATSAPP | INSTAGRAM | SMS | EMAIL
   notes               String?
   selectedOptions     String?   // JSON: { type, size?, length?, optionIds?, choiceId? }
 
@@ -91,6 +87,9 @@ model Booking {
   service             Service   @relation(fields: [serviceId], references: [id])
   timeSlotId          String
   timeSlot            TimeSlot  @relation(fields: [timeSlotId], references: [id])
+
+  bookingStartsAt     DateTime  // début exact du RDV (UTC), dans la fenêtre
+  bookingEndsAt       DateTime  // fin exacte du RDV (UTC), dans la fenêtre
 
   priceCentsAtBooking Int
 
@@ -106,6 +105,13 @@ model Booking {
 
   @@index([status, createdAt])
   @@index([timeSlotId])
+  @@index([bookingStartsAt])
+}
+
+model Setting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
 }
 
 model NotificationLog {

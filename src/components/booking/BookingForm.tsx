@@ -7,7 +7,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 import { formatInTimeZone } from "date-fns-tz";
 import { fr } from "date-fns/locale";
-import { bookingInputSchema, PREFERRED_CHANNELS, type BookingInput } from "@/schemas/booking";
+import { bookingInputSchema, type BookingInput } from "@/schemas/booking";
 import { submitBooking } from "@/server/actions/booking";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,13 +15,6 @@ import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 
 const PARIS_TZ = "Europe/Paris";
-
-const CHANNEL_LABELS: Record<string, string> = {
-  WHATSAPP: "WhatsApp",
-  INSTAGRAM: "Instagram",
-  SMS: "SMS",
-  EMAIL: "Email",
-};
 
 type ServiceSummary = {
   id: string;
@@ -33,8 +26,9 @@ type ServiceSummary = {
 };
 
 type SlotSummary = {
-  id: string;
-  startsAt: string;
+  windowId: string;
+  bookingStartsAt: string;
+  bookingEndsAt: string;
 };
 
 type Props = {
@@ -58,28 +52,26 @@ export default function BookingForm({ service, slot, selectedOptionsJson }: Prop
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const slotDate = new Date(slot.startsAt);
-  const slotDisplay = formatInTimeZone(slotDate, PARIS_TZ, "EEEE d MMMM yyyy 'à' HH'h'mm", {
-    locale: fr,
-  });
+  const startDate = new Date(slot.bookingStartsAt);
+  const endDate = new Date(slot.bookingEndsAt);
+  const slotDateDisplay = formatInTimeZone(startDate, PARIS_TZ, "EEEE d MMMM yyyy", { locale: fr });
+  const slotTimeDisplay = `${formatInTimeZone(startDate, PARIS_TZ, "HH'h'mm")} – ${formatInTimeZone(endDate, PARIS_TZ, "HH'h'mm")}`;
 
   const {
     register,
     handleSubmit,
-    watch,
     setValue,
     formState: { errors },
   } = useForm<BookingInput>({
     resolver: zodResolver(bookingInputSchema),
     defaultValues: {
       serviceId: service.id,
-      timeSlotId: slot.id,
-      preferredChannel: "WHATSAPP",
+      timeSlotId: slot.windowId,
+      bookingStartsAt: slot.bookingStartsAt,
+      bookingEndsAt: slot.bookingEndsAt,
       selectedOptionsJson: selectedOptionsJson ?? undefined,
     },
   });
-
-  const preferredChannel = watch("preferredChannel");
 
   const onSubmit = async (data: BookingInput) => {
     setIsSubmitting(true);
@@ -89,7 +81,11 @@ export default function BookingForm({ service, slot, selectedOptionsJson }: Prop
         toast.error(result.error);
         return;
       }
-      router.push(`/ma-reservation/${result.data.publicCode}`);
+      if (result.data.paypalLink) {
+        window.location.assign(result.data.paypalLink);
+      } else {
+        router.push(`/ma-reservation/${result.data.publicCode}`);
+      }
     } catch {
       toast.error("Une erreur est survenue. Veuillez réessayer.");
     } finally {
@@ -99,13 +95,14 @@ export default function BookingForm({ service, slot, selectedOptionsJson }: Prop
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6" noValidate>
-      {/* Récap */}
+      {/* Récap créneau */}
       <div className="rounded-xl border bg-muted/40 p-4 space-y-1 text-sm">
         <p className="font-medium">{service.name}</p>
         {service.optionsSummary && (
           <p className="text-muted-foreground">{service.optionsSummary}</p>
         )}
-        <p className="text-muted-foreground capitalize">{slotDisplay}</p>
+        <p className="text-muted-foreground capitalize">{slotDateDisplay}</p>
+        <p className="text-muted-foreground">{slotTimeDisplay}</p>
         <p className="text-muted-foreground">
           {formatDuration(service.estimatedDurationMinutes ?? service.durationMinutes)} ·{" "}
           <span className="font-medium text-foreground">{formatPrice(service.priceCentsAtBooking)}</span>
@@ -115,34 +112,22 @@ export default function BookingForm({ service, slot, selectedOptionsJson }: Prop
       {/* Champs cachés */}
       <input type="hidden" {...register("serviceId")} />
       <input type="hidden" {...register("timeSlotId")} />
+      <input type="hidden" {...register("bookingStartsAt")} />
+      <input type="hidden" {...register("bookingEndsAt")} />
       <input type="hidden" {...register("selectedOptionsJson")} />
 
-      {/* Prénom / Nom */}
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-1.5">
-          <Label htmlFor="firstName">Prénom</Label>
-          <Input
-            id="firstName"
-            autoComplete="given-name"
-            aria-invalid={!!errors.firstName}
-            {...register("firstName")}
-          />
-          {errors.firstName && (
-            <p className="text-xs text-destructive">{errors.firstName.message}</p>
-          )}
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="lastName">Nom</Label>
-          <Input
-            id="lastName"
-            autoComplete="family-name"
-            aria-invalid={!!errors.lastName}
-            {...register("lastName")}
-          />
-          {errors.lastName && (
-            <p className="text-xs text-destructive">{errors.lastName.message}</p>
-          )}
-        </div>
+      {/* Prénom */}
+      <div className="space-y-1.5">
+        <Label htmlFor="firstName">Prénom</Label>
+        <Input
+          id="firstName"
+          autoComplete="given-name"
+          aria-invalid={!!errors.firstName}
+          {...register("firstName")}
+        />
+        {errors.firstName && (
+          <p className="text-xs text-destructive">{errors.firstName.message}</p>
+        )}
       </div>
 
       {/* Téléphone */}
@@ -168,73 +153,6 @@ export default function BookingForm({ service, slot, selectedOptionsJson }: Prop
         </div>
         {errors.phone && (
           <p className="text-xs text-destructive">{errors.phone.message}</p>
-        )}
-      </div>
-
-      {/* Canal de contact */}
-      <div className="space-y-1.5">
-        <Label htmlFor="preferredChannel">Canal de contact préféré</Label>
-        <select
-          id="preferredChannel"
-          {...register("preferredChannel")}
-          className={cn(
-            "flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs",
-            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1",
-            "disabled:cursor-not-allowed disabled:opacity-50"
-          )}
-        >
-          {PREFERRED_CHANNELS.map((ch) => (
-            <option key={ch} value={ch}>
-              {CHANNEL_LABELS[ch]}
-            </option>
-          ))}
-        </select>
-        {errors.preferredChannel && (
-          <p className="text-xs text-destructive">{errors.preferredChannel.message}</p>
-        )}
-      </div>
-
-      {/* Instagram (optionnel) */}
-      <div className="space-y-1.5">
-        <Label htmlFor="instagram">
-          Instagram{" "}
-          <span className="text-muted-foreground font-normal">(optionnel)</span>
-        </Label>
-        <div className="flex">
-          <span className="inline-flex items-center rounded-l-md border border-r-0 border-input bg-muted px-3 text-sm text-muted-foreground">
-            @
-          </span>
-          <Input
-            id="instagram"
-            placeholder="votre_compte"
-            autoComplete="off"
-            aria-invalid={!!errors.instagram}
-            className="rounded-l-none"
-            {...register("instagram")}
-          />
-        </div>
-        {errors.instagram && (
-          <p className="text-xs text-destructive">{errors.instagram.message}</p>
-        )}
-      </div>
-
-      {/* Email (conditionnel) */}
-      <div className="space-y-1.5">
-        <Label htmlFor="email">
-          Email{" "}
-          {preferredChannel !== "EMAIL" && (
-            <span className="text-muted-foreground font-normal">(optionnel)</span>
-          )}
-        </Label>
-        <Input
-          id="email"
-          type="email"
-          autoComplete="email"
-          aria-invalid={!!errors.email}
-          {...register("email")}
-        />
-        {errors.email && (
-          <p className="text-xs text-destructive">{errors.email.message}</p>
         )}
       </div>
 

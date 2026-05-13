@@ -16,11 +16,12 @@ import {
 import { requireAdmin } from '@/lib/auth';
 import { dispatch } from '@/notifications/send';
 import type { NotificationType } from '@/notifications/messages';
+import { getSetting } from '@/lib/settings';
 
 type ActionResult = { ok: true } | { ok: false; error: string };
 
 type SubmitResult =
-  | { ok: true; data: { publicCode: string } }
+  | { ok: true; data: { publicCode: string; paypalLink: string | null } }
   | { ok: false; error: string };
 
 export async function submitBooking(input: BookingInput): Promise<SubmitResult> {
@@ -32,7 +33,8 @@ export async function submitBooking(input: BookingInput): Promise<SubmitResult> 
   try {
     const booking = await createBooking(parsed.data);
     await notify(booking.id, 'BOOKING_RECEIVED');
-    return { ok: true, data: { publicCode: booking.publicCode } };
+    const paypalLink = await getSetting('paypal_link');
+    return { ok: true, data: { publicCode: booking.publicCode, paypalLink: paypalLink || null } };
   } catch (err) {
     if (err instanceof BookingError) {
       if (err.code === 'SLOT_NOT_AVAILABLE') {
