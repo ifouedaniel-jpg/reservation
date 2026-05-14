@@ -21,10 +21,10 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
               Prestations
             </Link>
             <Link
-              href="/produits"
+              href="/skincare"
               className="text-sm font-medium text-zinc-600 transition-colors hover:text-rose-600"
             >
-              Produits
+              Skincare
             </Link>
             <Link
               href="/ma-reservation"

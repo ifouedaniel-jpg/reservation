@@ -4,6 +4,7 @@ import { prisma } from '@/lib/db';
 import { Button } from '@/components/ui/button';
 import { DeleteServiceButton } from '@/components/admin/DeleteServiceButton';
 import { ToggleServiceButton } from '@/components/admin/ToggleServiceButton';
+import { parsePriceMatrix, getMinExtensionPriceCents, hasExtensionPricing } from '@/schemas/priceMatrix';
 
 export default async function PrestationsPage() {
   const services = await prisma.service.findMany({
@@ -58,9 +59,17 @@ export default async function PrestationsPage() {
                       {(service.priceCents / 100).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
                     </td>
                     <td className="px-4 py-3 text-muted-foreground">
-                      {service.priceWithExtensionCents
-                        ? (service.priceWithExtensionCents / 100).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })
-                        : '—'}
+                      {(() => {
+                        if (service.priceWithExtensionCents) {
+                          return (service.priceWithExtensionCents / 100).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' });
+                        }
+                        const matrix = parsePriceMatrix(service.priceMatrix);
+                        if (matrix && hasExtensionPricing(matrix)) {
+                          const min = getMinExtensionPriceCents(matrix);
+                          if (min !== null) return `à partir de ${(min / 100).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}`;
+                        }
+                        return '—';
+                      })()}
                     </td>
                     <td className="px-4 py-3">
                       <span className={

@@ -2,9 +2,6 @@
 
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
 import { formatInTimeZone } from "date-fns-tz";
 import { fr } from "date-fns/locale";
 import { toast } from "sonner";
@@ -12,18 +9,10 @@ import { submitBooking, uploadPaymentProof } from "@/server/actions/booking";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { cn } from "@/lib/utils";
 import type { SelectedProduct } from "@/schemas/booking";
+import type { InfoData } from "@/components/booking/BookingInfoStep";
 
 const PARIS_TZ = "Europe/Paris";
-
-const formSchema = z.object({
-  firstName: z.string().min(1, "Prénom requis"),
-  phone: z.string().regex(/^\+\d{10,15}$/, "Numéro invalide (ex : +33612345678)"),
-  notes: z.string().max(500, "500 caractères maximum").optional(),
-});
-
-type FormData = z.infer<typeof formSchema>;
 
 type ServiceSummary = {
   id: string;
@@ -49,6 +38,7 @@ type ProductSummary = {
 type Props = {
   service: ServiceSummary;
   slot: SlotSummary;
+  infoData: InfoData;
   selectedOptionsJson?: string | null;
   selectedProducts?: SelectedProduct[];
   availableProducts?: ProductSummary[];
@@ -66,7 +56,7 @@ function formatPrice(cents: number): string {
   return (cents / 100).toLocaleString("fr-FR", { style: "currency", currency: "EUR" });
 }
 
-export default function BookingPaymentForm({ service, slot, selectedOptionsJson, selectedProducts = [], availableProducts = [], paypalLink }: Props) {
+export default function BookingPaymentForm({ service, slot, infoData, selectedOptionsJson, selectedProducts = [], availableProducts = [], paypalLink }: Props) {
   const router = useRouter();
   const [reference, setReference] = useState("");
   const [proofUrl, setProofUrl] = useState<string | null>(null);
@@ -99,16 +89,6 @@ export default function BookingPaymentForm({ service, slot, selectedOptionsJson,
   const slotDateDisplay = formatInTimeZone(startDate, PARIS_TZ, "EEEE d MMMM yyyy", { locale: fr });
   const slotTimeDisplay = `${formatInTimeZone(startDate, PARIS_TZ, "HH'h'mm")} – ${formatInTimeZone(endDate, PARIS_TZ, "HH'h'mm")}`;
 
-  const {
-    register,
-    handleSubmit,
-    setValue,
-    formState: { errors, isValid: infoValid },
-  } = useForm<FormData>({
-    resolver: zodResolver(formSchema),
-    mode: "onChange",
-  });
-
   const productTotal = selectedProducts.reduce((sum, sp) => {
     const p = availableProducts.find((pr) => pr.id === sp.productId);
     return sum + (p?.priceCents ?? 0) * sp.quantity;
@@ -116,7 +96,7 @@ export default function BookingPaymentForm({ service, slot, selectedOptionsJson,
   const grandTotal = service.priceCentsAtBooking + productTotal;
 
   const paymentValid = reference.trim().length > 0 || proofUrl !== null;
-  const canSubmit = infoValid && paymentValid && !isUploading;
+  const canSubmit = paymentValid && !isUploading;
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -145,16 +125,17 @@ export default function BookingPaymentForm({ service, slot, selectedOptionsJson,
     }
   };
 
-  const onSubmit = async (data: FormData) => {
+  const onSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
     if (!paymentValid) return;
     setIsSubmitting(true);
     setSlotError(null);
 
     try {
       const result = await submitBooking({
-        firstName: data.firstName,
-        phone: data.phone,
-        notes: data.notes,
+        firstName: infoData.firstName,
+        phone: infoData.phone,
+        notes: infoData.notes,
         serviceId: service.id,
         timeSlotId: slot.windowId,
         bookingStartsAt: slot.bookingStartsAt,
@@ -212,7 +193,7 @@ export default function BookingPaymentForm({ service, slot, selectedOptionsJson,
         </div>
       </div>
     )}
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-8" noValidate>
+    <form onSubmit={onSubmit} className="space-y-8">
       {/* Erreur créneau indisponible */}
       {slotError && (
         <div className="rounded-xl border border-destructive bg-destructive/10 p-4 text-sm text-destructive">
@@ -251,74 +232,6 @@ export default function BookingPaymentForm({ service, slot, selectedOptionsJson,
             </p>
           </div>
         )}
-      </div>
-
-      {/* ── Vos informations ── */}
-      <div className="rounded-xl border bg-card p-6 space-y-5">
-        <p className="text-base font-semibold">Vos informations</p>
-
-        <div className="space-y-1.5">
-          <Label htmlFor="firstName">Prénom</Label>
-          <Input
-            id="firstName"
-            autoComplete="given-name"
-            aria-invalid={!!errors.firstName}
-            disabled={isSubmitting}
-            {...register("firstName")}
-          />
-          {errors.firstName && (
-            <p className="text-xs text-destructive">{errors.firstName.message}</p>
-          )}
-        </div>
-
-        <div className="space-y-1.5">
-          <Label htmlFor="phone">Téléphone</Label>
-          <div className="flex">
-            <span className="inline-flex items-center rounded-l-md border border-r-0 border-input bg-muted px-3 text-sm text-muted-foreground">
-              +33
-            </span>
-            <Input
-              id="phone"
-              type="tel"
-              inputMode="numeric"
-              autoComplete="tel-national"
-              placeholder="612345678"
-              aria-invalid={!!errors.phone}
-              className="rounded-l-none"
-              disabled={isSubmitting}
-              onChange={(e) => {
-                const digits = e.target.value.replace(/\D/g, "");
-                setValue("phone", digits ? `+33${digits}` : "", { shouldValidate: true });
-              }}
-            />
-          </div>
-          {errors.phone && (
-            <p className="text-xs text-destructive">{errors.phone.message}</p>
-          )}
-        </div>
-
-        <div className="space-y-1.5">
-          <Label htmlFor="notes">
-            Notes{" "}
-            <span className="text-muted-foreground font-normal">(optionnel, 500 car. max)</span>
-          </Label>
-          <textarea
-            id="notes"
-            rows={3}
-            aria-invalid={!!errors.notes}
-            disabled={isSubmitting}
-            {...register("notes")}
-            className={cn(
-              "flex min-h-[72px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1",
-              "disabled:cursor-not-allowed disabled:opacity-50 resize-none"
-            )}
-            placeholder="Longueur des cheveux, couleur souhaitée…"
-          />
-          {errors.notes && (
-            <p className="text-xs text-destructive">{errors.notes.message}</p>
-          )}
-        </div>
       </div>
 
       {/* ── Paiement ── */}

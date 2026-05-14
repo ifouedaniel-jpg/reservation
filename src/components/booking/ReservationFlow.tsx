@@ -5,6 +5,7 @@ import { addMinutes } from 'date-fns';
 import SlotPicker, { type AvailableSlot } from '@/components/SlotPicker';
 import { PriceConfigurator } from '@/components/booking/PriceConfigurator';
 import ProductPicker from '@/components/booking/ProductPicker';
+import BookingInfoStep, { type InfoData } from '@/components/booking/BookingInfoStep';
 import BookingPaymentForm from '@/components/booking/BookingPaymentForm';
 import { parsePriceMatrix, getDurationMinutes } from '@/schemas/priceMatrix';
 import type { SelectedOptions } from '@/schemas/priceMatrix';
@@ -55,20 +56,23 @@ export function ReservationFlow({ service, availableSlots, priceMatrixJson, payp
   const [priceCents, setPriceCents] = useState<number | null>(null);
   const [selectedSlot, setSelectedSlot] = useState<AvailableSlot | null>(null);
   const [selectedProducts, setSelectedProducts] = useState<SelectedProduct[] | null>(null);
+  const [infoData, setInfoData] = useState<InfoData | null>(null);
 
   const slotStepRef = useRef<HTMLDivElement>(null);
   const productStepRef = useRef<HTMLDivElement>(null);
-  const formStepRef = useRef<HTMLDivElement>(null);
+  const infoStepRef = useRef<HTMLDivElement>(null);
+  const paymentStepRef = useRef<HTMLDivElement>(null);
 
   const hasMatrix = matrix !== null;
   const hasProducts = products.length > 0;
-  const totalSteps = (hasMatrix ? 1 : 0) + 1 + (hasProducts ? 1 : 0) + 1;
   const optionsReady = !hasMatrix || selectedOptions !== null;
 
   let stepN = 0;
   const slotStepN = (hasMatrix ? ++stepN : stepN) + 1;
   const productStepN = hasProducts ? slotStepN + 1 : null;
-  const formStepN = (productStepN ?? slotStepN) + 1;
+  const infoStepN = (productStepN ?? slotStepN) + 1;
+  const paymentStepN = infoStepN + 1;
+  const totalSteps = paymentStepN;
 
   const estimatedDurationMinutes = useMemo(() => {
     if (!matrix || !selectedOptions) return null;
@@ -98,18 +102,23 @@ export function ReservationFlow({ service, availableSlots, priceMatrixJson, payp
 
   useEffect(() => {
     if (selectedSlot) {
-      const ref = hasProducts ? productStepRef : formStepRef;
+      const ref = hasProducts ? productStepRef : infoStepRef;
       setTimeout(() => ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedSlot]);
 
   useEffect(() => {
-    if (selectedProducts !== null && formStepRef.current)
-      setTimeout(() => formStepRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+    if (selectedProducts !== null && infoStepRef.current)
+      setTimeout(() => infoStepRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
   }, [selectedProducts]);
 
-  const showForm = hasProducts ? selectedProducts !== null : !!selectedSlot;
+  useEffect(() => {
+    if (infoData !== null && paymentStepRef.current)
+      setTimeout(() => paymentStepRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+  }, [infoData]);
+
+  const showInfoStep = hasProducts ? selectedProducts !== null : !!selectedSlot;
 
   return (
     <div className="space-y-10">
@@ -154,10 +163,22 @@ export function ReservationFlow({ service, availableSlots, priceMatrixJson, payp
         </div>
       )}
 
-      {/* Étape : infos + paiement */}
-      {selectedSlot && bookingEndsAt && showForm && (
-        <div ref={formStepRef} className="space-y-4 scroll-mt-6">
-          <StepHeader n={formStepN} total={totalSteps} title="Finaliser la réservation" />
+      {/* Étape : vos informations */}
+      {selectedSlot && bookingEndsAt && showInfoStep && (
+        <div ref={infoStepRef} className="space-y-4 scroll-mt-6">
+          <StepHeader n={infoStepN} total={totalSteps} title="Vos informations" />
+          <BookingInfoStep
+            onComplete={(data) => {
+              setInfoData(data);
+            }}
+          />
+        </div>
+      )}
+
+      {/* Étape : paiement */}
+      {selectedSlot && bookingEndsAt && infoData && (
+        <div ref={paymentStepRef} className="space-y-4 scroll-mt-6">
+          <StepHeader n={paymentStepN} total={totalSteps} title="Paiement" />
           <BookingPaymentForm
               service={{
                 id: service.id,
@@ -172,6 +193,7 @@ export function ReservationFlow({ service, availableSlots, priceMatrixJson, payp
                 bookingStartsAt: selectedSlot.startTime,
                 bookingEndsAt,
               }}
+              infoData={infoData}
               selectedOptionsJson={selectedOptions ? JSON.stringify(selectedOptions) : null}
               selectedProducts={selectedProducts ?? []}
               availableProducts={products}

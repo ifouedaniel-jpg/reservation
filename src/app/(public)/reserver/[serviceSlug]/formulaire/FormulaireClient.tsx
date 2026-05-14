@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+import BookingInfoStep, { type InfoData } from "@/components/booking/BookingInfoStep";
 import BookingPaymentForm from "@/components/booking/BookingPaymentForm";
 
 type ServiceSummary = {
@@ -25,12 +27,20 @@ type Props = {
 };
 
 export default function FormulaireClient({ service, slot, selectedOptionsJson, paypalLink }: Props) {
+  const [infoData, setInfoData] = useState<InfoData | null>(null);
+
   return (
-    <BookingPaymentForm
-      service={service}
-      slot={slot}
-      selectedOptionsJson={selectedOptionsJson}
-      paypalLink={paypalLink}
-    />
+    <div className="space-y-10">
+      <BookingInfoStep onComplete={setInfoData} />
+      {infoData && (
+        <BookingPaymentForm
+          service={service}
+          slot={slot}
+          infoData={infoData}
+          selectedOptionsJson={selectedOptionsJson}
+          paypalLink={paypalLink}
+        />
+      )}
+    </div>
   );
 }

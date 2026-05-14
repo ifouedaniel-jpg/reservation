@@ -27,10 +27,10 @@ export default function HomePage() {
               Prestations
             </Link>
             <Link
-              href="/produits"
+              href="/skincare"
               className="text-sm font-medium text-zinc-400 transition-colors hover:text-white"
             >
-              Produits
+              Skincare
             </Link>
             <Link
               href="/ma-reservation"
