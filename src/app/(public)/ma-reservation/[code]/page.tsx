@@ -32,6 +32,7 @@ export default async function MaReservationPage({ params }: Props) {
     where: { publicCode: code },
     include: {
       service: true,
+      products: { include: { product: true } },
     },
   });
 
@@ -58,7 +59,6 @@ export default async function MaReservationPage({ params }: Props) {
         status={booking.status}
         address={businessAddress}
         serviceSlug={booking.service.slug}
-        priceCents={booking.priceCentsAtBooking}
       />
 
       {/* Détail de la prestation */}
@@ -75,14 +75,18 @@ export default async function MaReservationPage({ params }: Props) {
         {booking.notes && <Row label="Notes" value={booking.notes} />}
       </div>
 
-      {/* Paiement */}
-      <div className="mt-6 rounded-xl border bg-muted/40 p-5">
-        <div className="flex items-center justify-between">
-          <span className="text-sm font-medium">Montant à régler</span>
-          <span className="text-xl font-bold">{formatPrice(booking.priceCentsAtBooking)}</span>
+      {/* Produits commandés */}
+      {booking.products.length > 0 && (
+        <div className="mt-6 rounded-xl border divide-y">
+          <p className="px-4 py-3 text-sm font-medium">Produits commandés</p>
+          {booking.products.map((bp) => (
+            <div key={bp.id} className="flex items-center justify-between gap-4 px-4 py-3 text-sm">
+              <span className="text-muted-foreground">{bp.product.name} × {bp.quantity}</span>
+              <span className="font-medium">{formatPrice(bp.priceCentsAtBooking * bp.quantity)}</span>
+            </div>
+          ))}
         </div>
-        <p className="mt-1 text-xs text-muted-foreground">Paiement sur place le jour du rendez-vous.</p>
-      </div>
+      )}
 
       <p className="mt-8 text-center text-xs text-muted-foreground">
         Conservez ce lien pour suivre votre réservation.
@@ -106,15 +110,11 @@ function StatusMessage({
   status,
   address,
   serviceSlug,
-  priceCents,
 }: {
   status: string;
   address: string;
   serviceSlug: string;
-  priceCents: number;
 }) {
-  const priceLabel = (priceCents / 100).toLocaleString("fr-FR", { style: "currency", currency: "EUR" });
-
   if (status === "PENDING") {
     return (
       <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
@@ -131,8 +131,7 @@ function StatusMessage({
       <div className="rounded-xl border border-green-200 bg-green-50 p-4 text-sm text-green-900">
         <p className="font-medium">Rendez-vous confirmé ✓</p>
         <p className="mt-1 text-green-800">
-          Rendez-vous à <strong>{address}</strong>. Merci de prévoir{" "}
-          <strong>{priceLabel}</strong> à régler sur place.
+          Rendez-vous à <strong>{address}</strong>. À très bientôt !
         </p>
       </div>
     );

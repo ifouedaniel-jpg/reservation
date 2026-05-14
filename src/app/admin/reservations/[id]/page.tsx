@@ -61,22 +61,29 @@ export default async function AdminReservationDetailPage({ params }: Props) {
   return (
     <div className="max-w-5xl space-y-6">
       {/* En-tête — pleine largeur */}
-      <div>
-        <Link
-          href="/admin/reservations"
-          className="text-sm text-muted-foreground hover:text-foreground mb-4 inline-block"
-        >
-          ← Retour aux réservations
-        </Link>
-        <div className="flex items-center gap-3 mt-1">
-          <h1 className="text-2xl font-semibold">{booking.customerFirstName}</h1>
-          <BookingStatusBadge status={booking.status} />
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <Link
+            href="/admin/reservations"
+            className="text-sm text-muted-foreground hover:text-foreground mb-4 inline-block"
+          >
+            ← Retour aux réservations
+          </Link>
+          <div className="flex items-center gap-3 mt-1 flex-wrap">
+            <h1 className="text-2xl font-semibold">{booking.customerFirstName}</h1>
+            <BookingStatusBadge status={booking.status} />
+          </div>
+          <p className="text-sm text-muted-foreground mt-1">
+            Réf. <span className="font-mono">{booking.publicCode}</span>
+            {' · '}
+            Créée le {formatParis(booking.createdAt, 'd MMM yyyy à HH:mm')}
+          </p>
         </div>
-        <p className="text-sm text-muted-foreground mt-1">
-          Réf. <span className="font-mono">{booking.publicCode}</span>
-          {' · '}
-          Créée le {formatParis(booking.createdAt, 'd MMM yyyy à HH:mm')}
-        </p>
+        {['PENDING', 'CONFIRMED'].includes(booking.status) && (
+          <div className="shrink-0 pt-7">
+            <BookingActions bookingId={booking.id} status={booking.status} />
+          </div>
+        )}
       </div>
 
       {/* Grille 2 colonnes */}
@@ -124,14 +131,6 @@ export default async function AdminReservationDetailPage({ params }: Props) {
 
         {/* ── Colonne droite : actions, paiement, notifications ── */}
         <div className="space-y-6">
-
-          {/* Actions */}
-          {['PENDING', 'CONFIRMED'].includes(booking.status) && (
-            <section className="space-y-3">
-              <h2 className="text-base font-medium">Actions</h2>
-              <BookingActions bookingId={booking.id} status={booking.status} />
-            </section>
-          )}
 
           {/* Paiement */}
           {(booking.paymentReference || booking.paymentProofUrl) && (
