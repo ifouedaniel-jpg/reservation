@@ -398,15 +398,6 @@ export default function BookingPaymentForm({ service, slot, selectedOptionsJson,
         </div>
       </div>
 
-      {/* Rappel état des cheveux & retard */}
-      <div className="rounded-xl border border-amber-100 bg-amber-50/70 p-4 space-y-1.5 text-sm text-zinc-700">
-        <p className="font-semibold text-amber-700">État des cheveux &amp; retard</p>
-        <ul className="space-y-1 list-disc list-inside leading-snug">
-          <li>Merci de venir impérativement avec des cheveux <strong>propres et parfaitement démêlés</strong>.</li>
-          <li>Un retard de plus de <strong>25&nbsp;min</strong> entraîne des frais supplémentaires.</li>
-        </ul>
-      </div>
-
       <Button
         type="submit"
         size="lg"

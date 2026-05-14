@@ -7,8 +7,21 @@ import { parsePriceMatrix, getMinPriceCents } from "@/schemas/priceMatrix"
 import { computeAvailableStartTimes } from "@/lib/slots"
 import { ReservationFlow } from "@/components/booking/ReservationFlow"
 import { getSetting } from "@/lib/settings"
+import { BOOKING_INFO_DEFAULTS } from "@/server/actions/settings"
 
 type Props = { params: Promise<{ serviceSlug: string }> }
+
+function InfoBlock({ title, text }: { title: string; text: string }) {
+  const lines = text.split('\n').map((l) => l.trim()).filter(Boolean)
+  return (
+    <div className="space-y-2">
+      <p className="font-semibold text-rose-700">{title}</p>
+      <ul className="space-y-1.5 text-zinc-700 list-disc list-inside leading-snug">
+        {lines.map((line, i) => <li key={i}>{line}</li>)}
+      </ul>
+    </div>
+  )
+}
 
 function formatDuration(minutes: number): string {
   if (minutes < 60) return `${minutes} min`
@@ -31,10 +44,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function ReserverPage({ params }: Props) {
   const { serviceSlug } = await params
 
-  const [service, paypalLink, products] = await Promise.all([
+  const [service, paypalLink, products, infoMeches, infoAcompte, infoCheveux] = await Promise.all([
     prisma.service.findUnique({ where: { slug: serviceSlug, active: true } }),
     getSetting('paypal_link'),
     prisma.product.findMany({ where: { active: true }, orderBy: { sortOrder: 'asc' } }),
+    getSetting('info_booking_meches'),
+    getSetting('info_booking_acompte'),
+    getSetting('info_booking_cheveux'),
   ])
 
   if (!service) notFound();
@@ -96,20 +112,12 @@ export default async function ReserverPage({ params }: Props) {
 
       {/* Infos importantes avant réservation */}
       <div className="mb-8 rounded-xl border border-rose-100 bg-rose-50/60 p-5 space-y-5 text-sm">
-        <div className="space-y-2">
-          <p className="font-semibold text-rose-700">Réservation &amp; Mèches</p>
-          <ul className="space-y-1.5 text-zinc-700 list-disc list-inside leading-snug">
-            <li>Envoyez-moi une photo du modèle souhaité via WhatsApp ou Instagram après avoir consulté mon catalogue de prix.</li>
-            <li>Les tarifs du catalogue ne comprennent pas les extensions (sauf pour certains).</li>
-            <li>Si vous souhaitez que je m&apos;occupe de l&apos;achat des mèches pour vous, précisez-le impérativement lors de la prise de rendez-vous.</li>
-          </ul>
+        <InfoBlock title="Réservation & Mèches" text={infoMeches ?? BOOKING_INFO_DEFAULTS.meches} />
+        <div className="border-t border-rose-100 pt-4">
+          <InfoBlock title="Acompte & Confirmation" text={infoAcompte ?? BOOKING_INFO_DEFAULTS.acompte} />
         </div>
-        <div className="space-y-2 border-t border-rose-100 pt-4">
-          <p className="font-semibold text-rose-700">Acompte &amp; Confirmation</p>
-          <ul className="space-y-1.5 text-zinc-700 list-disc list-inside leading-snug">
-            <li>Un versement de <strong>15&nbsp;€</strong> est obligatoire pour réserver votre date.</li>
-            <li>À la suite du paiement, vous recevrez un message de confirmation contenant l&apos;adresse exacte du rendez-vous.</li>
-          </ul>
+        <div className="border-t border-rose-100 pt-4">
+          <InfoBlock title="État des cheveux & retard" text={infoCheveux ?? BOOKING_INFO_DEFAULTS.cheveux} />
         </div>
       </div>
 
