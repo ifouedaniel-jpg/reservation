@@ -254,8 +254,8 @@ export default function BookingPaymentForm({ service, slot, selectedOptionsJson,
       </div>
 
       {/* ── Vos informations ── */}
-      <div className="space-y-5">
-        <p className="text-sm font-semibold">Vos informations</p>
+      <div className="rounded-xl border bg-card p-6 space-y-5">
+        <p className="text-base font-semibold">Vos informations</p>
 
         <div className="space-y-1.5">
           <Label htmlFor="firstName">Prénom</Label>
@@ -322,8 +322,8 @@ export default function BookingPaymentForm({ service, slot, selectedOptionsJson,
       </div>
 
       {/* ── Paiement ── */}
-      <div className="space-y-5">
-        <p className="text-sm font-semibold">Paiement</p>
+      <div className="rounded-xl border bg-card p-6 space-y-5">
+        <p className="text-base font-semibold">Paiement</p>
 
         {paypalLink && (
           <div className="rounded-xl border bg-blue-50 dark:bg-blue-950/30 p-4 space-y-3">

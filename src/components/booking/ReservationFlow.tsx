@@ -157,9 +157,8 @@ export function ReservationFlow({ service, availableSlots, priceMatrixJson, payp
       {/* Étape : infos + paiement */}
       {selectedSlot && bookingEndsAt && showForm && (
         <div ref={formStepRef} className="space-y-4 scroll-mt-6">
-          <StepHeader n={formStepN} total={totalSteps} title="Vos informations & paiement" />
-          <div className="rounded-xl border bg-card p-6">
-            <BookingPaymentForm
+          <StepHeader n={formStepN} total={totalSteps} title="Finaliser la réservation" />
+          <BookingPaymentForm
               service={{
                 id: service.id,
                 name: service.name,
@@ -178,7 +177,6 @@ export function ReservationFlow({ service, availableSlots, priceMatrixJson, payp
               availableProducts={products}
               paypalLink={paypalLink}
             />
-          </div>
         </div>
       )}
     </div>
