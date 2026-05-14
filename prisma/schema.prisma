@@ -22,8 +22,9 @@ model Service {
   name            String
   description     String
   durationMinutes Int
-  priceCents      Int
-  priceMatrix     String?        // JSON: PriceMatrix (grid | options)
+  priceCents                Int
+  priceWithExtensionCents   Int?   // prix affiché "avec extension" (optionnel)
+  priceMatrix               String?        // JSON: PriceMatrix (grid | options)
   active          Boolean        @default(true)
   sortOrder       Int            @default(0)
   createdAt       DateTime       @default(now())

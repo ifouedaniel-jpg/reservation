@@ -18,6 +18,7 @@ type ServiceData = {
   description: string;
   durationMinutes: number;
   priceCents: number;
+  priceWithExtensionCents: number | null;
   active: boolean;
   sortOrder: number;
   priceMatrix: string | null;
@@ -36,6 +37,9 @@ export function ServiceForm({ action, service }: Props) {
   const [isGrid, setIsGrid] = useState(initialHasGrid);
 
   const priceEuros = service ? (service.priceCents / 100).toFixed(2) : '';
+  const priceWithExtensionEuros = service?.priceWithExtensionCents
+    ? (service.priceWithExtensionCents / 100).toFixed(2)
+    : '';
 
   return (
     <form action={formAction} className="max-w-lg space-y-6">
@@ -60,7 +64,7 @@ export function ServiceForm({ action, service }: Props) {
         />
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {/* Durée : visible uniquement en mode prix fixe */}
         {!isGrid && (
           <div className="space-y-2">
@@ -81,7 +85,7 @@ export function ServiceForm({ action, service }: Props) {
         )}
 
         <div className="space-y-2">
-          <Label htmlFor="priceEuros">Prix de base (€)</Label>
+          <Label htmlFor="priceEuros">Prix sans extension (€)</Label>
           <Input
             id="priceEuros"
             name="priceEuros"
@@ -90,6 +94,21 @@ export function ServiceForm({ action, service }: Props) {
             min="0.01"
             required
             defaultValue={priceEuros}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="priceWithExtensionEuros">
+            Prix avec extension (€){' '}
+            <span className="text-muted-foreground font-normal">(optionnel)</span>
+          </Label>
+          <Input
+            id="priceWithExtensionEuros"
+            name="priceWithExtensionEuros"
+            type="number"
+            step="0.01"
+            min="0.01"
+            defaultValue={priceWithExtensionEuros}
+            placeholder="Laisser vide si non applicable"
           />
         </div>
       </div>

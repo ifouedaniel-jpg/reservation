@@ -27,11 +27,14 @@ function revalidateServicePaths(slug?: string) {
 
 function parseServiceFormData(formData: FormData) {
   const priceMatrixRaw = ((formData.get('priceMatrix') as string) ?? '').trim();
+  const extensionRaw = ((formData.get('priceWithExtensionEuros') as string) ?? '').trim();
+  const extensionCents = extensionRaw ? Math.round(parseFloat(extensionRaw) * 100) : null;
   return {
     name: (formData.get('name') as string) ?? '',
     description: (formData.get('description') as string) ?? '',
     durationMinutes: Number(formData.get('durationMinutes')),
     priceCents: Math.round(parseFloat((formData.get('priceEuros') as string) ?? '0') * 100),
+    priceWithExtensionCents: extensionCents && extensionCents > 0 ? extensionCents : null,
     active: formData.get('active') === 'on',
     sortOrder: Number(formData.get('sortOrder') || '0'),
     priceMatrix: priceMatrixRaw || null,

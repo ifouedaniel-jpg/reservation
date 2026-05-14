@@ -5,6 +5,7 @@ export const serviceInputSchema = z.object({
   description: z.string().min(1, 'Description requise'),
   durationMinutes: z.number().int().positive('Durée invalide'),
   priceCents: z.number().int().positive('Prix invalide'),
+  priceWithExtensionCents: z.number().int().positive().nullable().optional(),
   active: z.boolean(),
   sortOrder: z.number().int().min(0, 'Ordre invalide'),
   priceMatrix: z.string().nullable().optional(),

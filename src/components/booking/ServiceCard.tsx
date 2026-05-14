@@ -15,6 +15,7 @@ type Props = {
     description: string;
     durationMinutes: number;
     priceCents: number;
+    priceWithExtensionCents: number | null;
     priceMatrix: string | null;
     images: { url: string }[];
   };
@@ -80,15 +81,31 @@ export function ServiceCard({ service }: Props) {
         <CardContent className="flex flex-1 flex-col gap-2 p-5">
           <h3 className="text-lg font-semibold leading-tight text-zinc-900">{service.name}</h3>
           <p className="line-clamp-2 text-sm text-zinc-500">{service.description}</p>
-          <div className="mt-auto flex items-center justify-between pt-3">
+          <div className="mt-auto pt-3 space-y-1">
             <span className="text-sm text-zinc-400">{formatDuration(service.durationMinutes)}</span>
-            <span className="text-lg font-bold text-rose-600">
-              {(() => {
-                const matrix = parsePriceMatrix(service.priceMatrix);
-                if (matrix) return `À partir de ${formatPrice(getMinPriceCents(matrix))}`;
-                return formatPrice(service.priceCents);
-              })()}
-            </span>
+            {service.priceWithExtensionCents ? (
+              <div className="space-y-0.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-zinc-500">Sans extension</span>
+                  <span className="text-sm font-semibold text-zinc-800">{formatPrice(service.priceCents)}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-zinc-500">Avec extension</span>
+                  <span className="text-sm font-semibold text-rose-600">{formatPrice(service.priceWithExtensionCents)}</span>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center justify-between">
+                <span />
+                <span className="text-lg font-bold text-rose-600">
+                  {(() => {
+                    const matrix = parsePriceMatrix(service.priceMatrix);
+                    if (matrix) return `À partir de ${formatPrice(getMinPriceCents(matrix))}`;
+                    return formatPrice(service.priceCents);
+                  })()}
+                </span>
+              </div>
+            )}
           </div>
         </CardContent>
 

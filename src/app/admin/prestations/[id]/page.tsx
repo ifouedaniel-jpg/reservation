@@ -17,6 +17,7 @@ export default async function EditPrestationPage({ params }: Props) {
       description: true,
       durationMinutes: true,
       priceCents: true,
+      priceWithExtensionCents: true,
       active: true,
       sortOrder: true,
       priceMatrix: true,
