@@ -7,7 +7,7 @@ import { parsePriceMatrix, getMinPriceCents } from "@/schemas/priceMatrix"
 import { computeAvailableStartTimes } from "@/lib/slots"
 import { ReservationFlow } from "@/components/booking/ReservationFlow"
 import { getSetting } from "@/lib/settings"
-import { BOOKING_INFO_DEFAULTS } from "@/server/actions/settings"
+import { BOOKING_INFO_DEFAULTS } from "@/lib/bookingInfoDefaults"
 
 type Props = { params: Promise<{ serviceSlug: string }> }
 
