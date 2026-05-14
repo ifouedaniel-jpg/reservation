@@ -94,6 +94,25 @@ export default async function ReserverPage({ params }: Props) {
         </p>
       </div>
 
+      {/* Infos importantes avant réservation */}
+      <div className="mb-8 rounded-xl border border-rose-100 bg-rose-50/60 p-5 space-y-5 text-sm">
+        <div className="space-y-2">
+          <p className="font-semibold text-rose-700">Réservation &amp; Mèches</p>
+          <ul className="space-y-1.5 text-zinc-700 list-disc list-inside leading-snug">
+            <li>Envoyez-moi une photo du modèle souhaité via WhatsApp ou Instagram après avoir consulté mon catalogue de prix.</li>
+            <li>Les tarifs du catalogue ne comprennent pas les extensions (sauf pour certains).</li>
+            <li>Si vous souhaitez que je m&apos;occupe de l&apos;achat des mèches pour vous, précisez-le impérativement lors de la prise de rendez-vous.</li>
+          </ul>
+        </div>
+        <div className="space-y-2 border-t border-rose-100 pt-4">
+          <p className="font-semibold text-rose-700">Acompte &amp; Confirmation</p>
+          <ul className="space-y-1.5 text-zinc-700 list-disc list-inside leading-snug">
+            <li>Un versement de <strong>15&nbsp;€</strong> est obligatoire pour réserver votre date.</li>
+            <li>À la suite du paiement, vous recevrez un message de confirmation contenant l&apos;adresse exacte du rendez-vous.</li>
+          </ul>
+        </div>
+      </div>
+
       {availableSlots.length === 0 ? (
         <p className="rounded-xl border bg-muted/40 py-12 text-center text-sm text-muted-foreground">
           Aucun créneau disponible dans les 8 prochaines semaines.
