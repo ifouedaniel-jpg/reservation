@@ -93,6 +93,9 @@ model Booking {
 
   priceCentsAtBooking Int
 
+  paymentReference    String?
+  paymentProofUrl     String?
+
   status              String    @default("PENDING") // PENDING|CONFIRMED|REJECTED|CANCELLED|COMPLETED|NO_SHOW
   cancellationReason  String?
 
@@ -102,10 +105,37 @@ model Booking {
   cancelledAt         DateTime?
 
   notifications       NotificationLog[]
+  products            BookingProduct[]
 
   @@index([status, createdAt])
   @@index([timeSlotId])
   @@index([bookingStartsAt])
+}
+
+model Product {
+  id          String           @id @default(cuid())
+  name        String
+  description String?
+  priceCents  Int
+  imageUrl    String?
+  active      Boolean          @default(true)
+  sortOrder   Int              @default(0)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  bookings    BookingProduct[]
+}
+
+model BookingProduct {
+  id                  String   @id @default(cuid())
+  bookingId           String
+  booking             Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  productId           String
+  product             Product  @relation(fields: [productId], references: [id])
+  quantity            Int      @default(1)
+  priceCentsAtBooking Int
+  createdAt           DateTime @default(now())
+
+  @@index([bookingId])
 }
 
 model Setting {

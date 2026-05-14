@@ -14,7 +14,7 @@ export async function markNotificationSentAction(
   try {
     await prisma.notificationLog.update({
       where: { id: notificationId },
-      data: { status: 'SENT' },
+      data: { status: 'SENT', sentAt: new Date() },
     });
     revalidatePath(`/admin/reservations/${bookingId}`);
     return { ok: true };

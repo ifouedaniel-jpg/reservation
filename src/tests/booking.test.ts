@@ -28,17 +28,22 @@ import {
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 
+// Fenêtre de disponibilité : 9h-17h UTC le 1er juin 2026
+const WINDOW_START = new Date('2026-06-01T07:00:00.000Z'); // 09:00 Paris
+const WINDOW_END   = new Date('2026-06-01T15:00:00.000Z'); // 17:00 Paris
+// RDV de 2h : 11h-13h Paris
+const BOOKING_START = new Date('2026-06-01T09:00:00.000Z'); // 11:00 Paris
+const BOOKING_END   = new Date('2026-06-01T11:00:00.000Z'); // 13:00 Paris
+
 const baseInput = {
   firstName: 'Marie',
-  lastName: 'Dupont',
   phone: '+33612345678',
-  instagram: undefined,
-  email: undefined,
-  preferredChannel: 'WHATSAPP' as const,
   notes: undefined,
   gdprConsent: true as const,
   serviceId: 'service-1',
   timeSlotId: 'slot-1',
+  bookingStartsAt: BOOKING_START.toISOString(),
+  bookingEndsAt: BOOKING_END.toISOString(),
 };
 
 const mockService = {
@@ -51,8 +56,8 @@ const mockService = {
 
 const mockSlot = {
   id: 'slot-1',
-  startsAt: new Date('2026-06-01T09:00:00.000Z'),
-  endsAt: new Date('2026-06-01T09:30:00.000Z'),
+  startsAt: WINDOW_START,
+  endsAt: WINDOW_END,
   status: 'OPEN',
 };
 
@@ -60,32 +65,33 @@ const mockBooking = {
   id: 'booking-1',
   publicCode: 'pub-code-abc',
   customerFirstName: 'Marie',
-  customerLastName: 'Dupont',
   customerPhone: '+33612345678',
   serviceId: 'service-1',
   timeSlotId: 'slot-1',
+  bookingStartsAt: BOOKING_START,
+  bookingEndsAt: BOOKING_END,
   priceCentsAtBooking: 8000,
   status: 'PENDING',
   createdAt: new Date(),
   updatedAt: new Date(),
 };
 
-function makeTx({
-  slotStatus = 'OPEN',
-  serviceActive = true,
-}: {
+type TxOptions = {
   slotStatus?: string;
   serviceActive?: boolean;
-} = {}) {
+  overlapping?: number;
+};
+
+function makeTx({ slotStatus = 'OPEN', serviceActive = true, overlapping = 0 }: TxOptions = {}) {
   return {
     service: {
       findUnique: vi.fn().mockResolvedValue(serviceActive ? mockService : null),
     },
     timeSlot: {
       findUnique: vi.fn().mockResolvedValue({ ...mockSlot, status: slotStatus }),
-      update: vi.fn().mockResolvedValue({ ...mockSlot, status: 'PENDING' }),
     },
     booking: {
+      count: vi.fn().mockResolvedValue(overlapping),
       create: vi.fn().mockResolvedValue(mockBooking),
     },
   };
@@ -100,9 +106,6 @@ function makeAdminTx({ bookingStatus = 'PENDING' }: { bookingStatus?: string } =
         Promise.resolve({ ...booking, ...data })
       ),
     },
-    timeSlot: {
-      update: vi.fn().mockResolvedValue({}),
-    },
   };
 }
 
@@ -115,18 +118,31 @@ describe('createBooking', () => {
     vi.clearAllMocks();
   });
 
-  it('crée un booking et retourne le publicCode quand le slot est OPEN', async () => {
+  it('crée un booking et retourne le publicCode quand le slot est OPEN et sans chevauchement', async () => {
     const tx = makeTx();
     mockTransaction.mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(tx));
 
     const result = await createBooking(baseInput);
 
     expect(result.publicCode).toBe('pub-code-abc');
-    expect(tx.timeSlot.update).toHaveBeenCalledWith({
-      where: { id: 'slot-1' },
-      data: { status: 'PENDING' },
-    });
+    expect(tx.booking.count).toHaveBeenCalledOnce();
     expect(tx.booking.create).toHaveBeenCalledOnce();
+  });
+
+  it('stocke bookingStartsAt et bookingEndsAt dans le booking', async () => {
+    const tx = makeTx();
+    mockTransaction.mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(tx));
+
+    await createBooking(baseInput);
+
+    expect(tx.booking.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          bookingStartsAt: BOOKING_START,
+          bookingEndsAt: BOOKING_END,
+        }),
+      })
+    );
   });
 
   it("lève SLOT_NOT_AVAILABLE quand le slot a le statut 'CLOSED'", async () => {
@@ -140,24 +156,15 @@ describe('createBooking', () => {
     expect(tx.booking.create).not.toHaveBeenCalled();
   });
 
-  it("lève SLOT_NOT_AVAILABLE quand le slot a le statut 'PENDING'", async () => {
-    const tx = makeTx({ slotStatus: 'PENDING' });
+  it('lève SLOT_NOT_AVAILABLE quand un chevauchement existe', async () => {
+    const tx = makeTx({ overlapping: 1 });
     mockTransaction.mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(tx));
 
     await expect(createBooking(baseInput)).rejects.toMatchObject({
       name: 'BookingError',
       code: 'SLOT_NOT_AVAILABLE',
     });
-  });
-
-  it("lève SLOT_NOT_AVAILABLE quand le slot a le statut 'BOOKED'", async () => {
-    const tx = makeTx({ slotStatus: 'BOOKED' });
-    mockTransaction.mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(tx));
-
-    await expect(createBooking(baseInput)).rejects.toMatchObject({
-      name: 'BookingError',
-      code: 'SLOT_NOT_AVAILABLE',
-    });
+    expect(tx.booking.create).not.toHaveBeenCalled();
   });
 
   it('lève SERVICE_NOT_FOUND quand la prestation est inactive', async () => {
@@ -168,7 +175,6 @@ describe('createBooking', () => {
       name: 'BookingError',
       code: 'SERVICE_NOT_FOUND',
     });
-    expect(tx.timeSlot.update).not.toHaveBeenCalled();
     expect(tx.booking.create).not.toHaveBeenCalled();
   });
 
@@ -184,7 +190,7 @@ describe('createBooking', () => {
     );
   });
 
-  it('stocke priceCentsAtBooking depuis le service au moment de la réservation', async () => {
+  it('stocke priceCentsAtBooking depuis le service', async () => {
     const tx = makeTx();
     mockTransaction.mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(tx));
 
@@ -199,17 +205,15 @@ describe('createBooking', () => {
 // ── createBooking — concurrence ───────────────────────────────────────────────
 
 describe('createBooking — concurrence', () => {
-  it('garantit qu\'un seul booking est créé parmi 10 appels simultanés sur le même slot', async () => {
+  it('garantit qu\'un seul booking est créé parmi 10 appels simultanés sur la même plage horaire', async () => {
     let transactionCallCount = 0;
 
     mockTransaction.mockImplementation(async (fn: (tx: ReturnType<typeof makeTx>) => Promise<unknown>) => {
-      // Premier appel : slot OPEN. Tous les suivants : slot PENDING.
-      // transactionCallCount++ est synchrone : s'incrémente avant tout await,
-      // simulant la sérialisation garantie par SQLite Serializable.
+      // Premier appel : pas de chevauchement. Tous les suivants : 1 chevauchement.
       const isFirst = transactionCallCount === 0;
       transactionCallCount++;
 
-      const tx = makeTx({ slotStatus: isFirst ? 'OPEN' : 'PENDING' });
+      const tx = makeTx({ overlapping: isFirst ? 0 : 1 });
       return fn(tx);
     });
 
@@ -238,16 +242,12 @@ describe('createBooking — concurrence', () => {
 describe('confirmBooking', () => {
   beforeEach(() => { vi.clearAllMocks(); });
 
-  it('passe le slot en BOOKED et le booking en CONFIRMED', async () => {
+  it('passe le booking en CONFIRMED depuis PENDING', async () => {
     const tx = makeAdminTx({ bookingStatus: 'PENDING' });
     mockTransaction.mockImplementation(async (fn: (tx: AdminTx) => Promise<unknown>) => fn(tx));
 
     await confirmBooking('booking-1');
 
-    expect(tx.timeSlot.update).toHaveBeenCalledWith({
-      where: { id: 'slot-1' },
-      data: { status: 'BOOKED' },
-    });
     expect(tx.booking.update).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { id: 'booking-1' },
@@ -264,7 +264,7 @@ describe('confirmBooking', () => {
       name: 'BookingTransitionError',
       code: 'INVALID_TRANSITION',
     });
-    expect(tx.timeSlot.update).not.toHaveBeenCalled();
+    expect(tx.booking.update).not.toHaveBeenCalled();
   });
 
   it('lève INVALID_TRANSITION si le booking est déjà CONFIRMED', async () => {
@@ -278,7 +278,7 @@ describe('confirmBooking', () => {
   });
 
   it('lève BOOKING_NOT_FOUND si le booking est introuvable', async () => {
-    const tx = { booking: { findUnique: vi.fn().mockResolvedValue(null), update: vi.fn() }, timeSlot: { update: vi.fn() } };
+    const tx = { booking: { findUnique: vi.fn().mockResolvedValue(null), update: vi.fn() } };
     mockTransaction.mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(tx));
 
     await expect(confirmBooking('nonexistent')).rejects.toMatchObject({
@@ -293,16 +293,12 @@ describe('confirmBooking', () => {
 describe('rejectBooking', () => {
   beforeEach(() => { vi.clearAllMocks(); });
 
-  it('libère le slot (OPEN) et passe le booking en REJECTED', async () => {
+  it('passe le booking en REJECTED depuis PENDING', async () => {
     const tx = makeAdminTx({ bookingStatus: 'PENDING' });
     mockTransaction.mockImplementation(async (fn: (tx: AdminTx) => Promise<unknown>) => fn(tx));
 
     await rejectBooking('booking-1', 'Complet');
 
-    expect(tx.timeSlot.update).toHaveBeenCalledWith({
-      where: { id: 'slot-1' },
-      data: { status: 'OPEN' },
-    });
     expect(tx.booking.update).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({ status: 'REJECTED', cancellationReason: 'Complet' }),
@@ -318,7 +314,7 @@ describe('rejectBooking', () => {
       name: 'BookingTransitionError',
       code: 'INVALID_TRANSITION',
     });
-    expect(tx.timeSlot.update).not.toHaveBeenCalled();
+    expect(tx.booking.update).not.toHaveBeenCalled();
   });
 
   it('lève INVALID_TRANSITION si le booking est déjà REJECTED', async () => {
@@ -337,16 +333,12 @@ describe('rejectBooking', () => {
 describe('cancelBooking', () => {
   beforeEach(() => { vi.clearAllMocks(); });
 
-  it('libère le slot et passe le booking en CANCELLED depuis PENDING', async () => {
+  it('passe le booking en CANCELLED depuis PENDING', async () => {
     const tx = makeAdminTx({ bookingStatus: 'PENDING' });
     mockTransaction.mockImplementation(async (fn: (tx: AdminTx) => Promise<unknown>) => fn(tx));
 
     await cancelBooking('booking-1');
 
-    expect(tx.timeSlot.update).toHaveBeenCalledWith({
-      where: { id: 'slot-1' },
-      data: { status: 'OPEN' },
-    });
     expect(tx.booking.update).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({ status: 'CANCELLED', cancelledAt: expect.any(Date) }),
@@ -354,16 +346,12 @@ describe('cancelBooking', () => {
     );
   });
 
-  it('libère le slot et passe le booking en CANCELLED depuis CONFIRMED', async () => {
+  it('passe le booking en CANCELLED depuis CONFIRMED avec motif', async () => {
     const tx = makeAdminTx({ bookingStatus: 'CONFIRMED' });
     mockTransaction.mockImplementation(async (fn: (tx: AdminTx) => Promise<unknown>) => fn(tx));
 
     await cancelBooking('booking-1', 'Empêchement');
 
-    expect(tx.timeSlot.update).toHaveBeenCalledWith({
-      where: { id: 'slot-1' },
-      data: { status: 'OPEN' },
-    });
     expect(tx.booking.update).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({ status: 'CANCELLED', cancellationReason: 'Empêchement' }),
@@ -379,7 +367,7 @@ describe('cancelBooking', () => {
       name: 'BookingTransitionError',
       code: 'INVALID_TRANSITION',
     });
-    expect(tx.timeSlot.update).not.toHaveBeenCalled();
+    expect(tx.booking.update).not.toHaveBeenCalled();
   });
 
   it('lève INVALID_TRANSITION si le booking est déjà CANCELLED', async () => {

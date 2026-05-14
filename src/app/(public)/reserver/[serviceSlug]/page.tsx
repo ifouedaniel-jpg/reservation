@@ -1,10 +1,12 @@
 import type { Metadata } from "next"
 import Link from "next/link"
 import { notFound } from "next/navigation"
-import { addWeeks } from "date-fns"
+import { addWeeks, addMinutes } from "date-fns"
 import { prisma } from "@/lib/db"
 import { parsePriceMatrix, getMinPriceCents } from "@/schemas/priceMatrix"
+import { computeAvailableStartTimes } from "@/lib/slots"
 import { ReservationFlow } from "@/components/booking/ReservationFlow"
+import { getSetting } from "@/lib/settings"
 
 type Props = { params: Promise<{ serviceSlug: string }> }
 
@@ -29,28 +31,47 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function ReserverPage({ params }: Props) {
   const { serviceSlug } = await params
 
-  const service = await prisma.service.findUnique({
-    where: { slug: serviceSlug, active: true },
-  })
+  const [service, paypalLink, products] = await Promise.all([
+    prisma.service.findUnique({ where: { slug: serviceSlug, active: true } }),
+    getSetting('paypal_link'),
+    prisma.product.findMany({ where: { active: true }, orderBy: { sortOrder: 'asc' } }),
+  ])
 
-  if (!service) notFound()
+  if (!service) notFound();
+  const resolvedPaypalLink = paypalLink || null;
 
   const now = new Date()
   const eightWeeksFromNow = addWeeks(now, 8)
 
-  const rawSlots = await prisma.timeSlot.findMany({
+  const windows = await prisma.timeSlot.findMany({
     where: {
       status: "OPEN",
       startsAt: { gte: now, lte: eightWeeksFromNow },
     },
+    include: {
+      bookings: {
+        where: { status: { in: ["PENDING", "CONFIRMED"] } },
+        select: { bookingStartsAt: true, bookingEndsAt: true },
+      },
+    },
     orderBy: { startsAt: "asc" },
   })
 
-  const slots = rawSlots.map((s) => ({
-    id: s.id,
-    startsAt: s.startsAt.toISOString(),
-    endsAt: s.endsAt.toISOString(),
-  }))
+  const STEP_MINUTES = 30
+
+  const availableSlots = windows.flatMap((w) => {
+    const startTimes = computeAvailableStartTimes(
+      w,
+      w.bookings,
+      service.durationMinutes,
+      STEP_MINUTES,
+    )
+    return startTimes.map((st) => ({
+      windowId: w.id,
+      startTime: st.toISOString(),
+      endTime: addMinutes(st, service.durationMinutes).toISOString(),
+    }))
+  })
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-10">
@@ -61,7 +82,7 @@ export default async function ReserverPage({ params }: Props) {
         ← {service.name}
       </Link>
 
-      <div className="mb-6 space-y-1">
+      <div className="mb-8 space-y-1">
         <h1 className="text-2xl font-semibold">Réserver</h1>
         <p className="text-sm text-muted-foreground">
           {service.name} · {formatDuration(service.durationMinutes)} ·{' '}
@@ -73,7 +94,7 @@ export default async function ReserverPage({ params }: Props) {
         </p>
       </div>
 
-      {slots.length === 0 ? (
+      {availableSlots.length === 0 ? (
         <p className="rounded-xl border bg-muted/40 py-12 text-center text-sm text-muted-foreground">
           Aucun créneau disponible dans les 8 prochaines semaines.
           <br />
@@ -81,9 +102,16 @@ export default async function ReserverPage({ params }: Props) {
         </p>
       ) : (
         <ReservationFlow
-          serviceSlug={service.slug}
-          slots={slots}
+          service={{
+            id: service.id,
+            name: service.name,
+            durationMinutes: service.durationMinutes,
+            priceCents: service.priceCents,
+          }}
+          availableSlots={availableSlots}
           priceMatrixJson={service.priceMatrix ?? null}
+          paypalLink={resolvedPaypalLink}
+          products={products}
         />
       )}
     </div>

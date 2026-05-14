@@ -29,8 +29,8 @@ export default async function AdminReservationsPage({ searchParams }: Props) {
   const [bookings, total] = await Promise.all([
     prisma.booking.findMany({
       where,
-      include: { service: true, timeSlot: true },
-      orderBy: { timeSlot: { startsAt: 'asc' } },
+      include: { service: true },
+      orderBy: { bookingStartsAt: 'asc' },
       take: PAGE_SIZE,
       skip: (page - 1) * PAGE_SIZE,
     }),
@@ -81,15 +81,15 @@ export default async function AdminReservationsPage({ searchParams }: Props) {
                 <tr key={b.id} className="hover:bg-muted/30">
                   <td className="px-4 py-3 whitespace-nowrap">
                     <span className="capitalize">
-                      {formatParis(b.timeSlot.startsAt, 'EEE d MMM')}
+                      {formatParis(b.bookingStartsAt, 'EEE d MMM')}
                     </span>
                     {' '}
-                    {formatParis(b.timeSlot.startsAt, 'yyyy')}
+                    {formatParis(b.bookingStartsAt, 'yyyy')}
                     {' à '}
-                    {formatParis(b.timeSlot.startsAt, "HH'h'mm")}
+                    {formatParis(b.bookingStartsAt, "HH'h'mm")}
                   </td>
                   <td className="px-4 py-3">
-                    {b.customerFirstName} {b.customerLastName}
+                    {b.customerFirstName}
                   </td>
                   <td className="px-4 py-3">{b.service.name}</td>
                   <td className="px-4 py-3">

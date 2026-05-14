@@ -1,6 +1,8 @@
 import { PrismaClient } from '../src/generated/prisma/client';
 import { PrismaBetterSqlite3 } from '@prisma/adapter-better-sqlite3';
+import { addDays } from 'date-fns';
 import bcrypt from 'bcryptjs';
+import { computeSlots } from '../src/lib/slots';
 
 const dbUrl = (process.env.DATABASE_URL ?? 'file:./dev.db').replace(/^file:/, '');
 const prisma = new PrismaClient({ adapter: new PrismaBetterSqlite3({ url: dbUrl }) });
@@ -50,7 +52,21 @@ async function main() {
     });
   }
 
-  console.log('Seed terminé.');
+  // Génération des fenêtres de disponibilité pour les 8 prochaines semaines
+  const nowUtc = new Date();
+  const windowEnd = addDays(nowUtc, 56); // 8 semaines
+  const rules = await prisma.recurringAvailability.findMany({ where: { active: true } });
+  const blockedDates = await prisma.blockedDate.findMany();
+  const slots = computeSlots(rules, blockedDates, nowUtc, windowEnd);
+
+  await prisma.timeSlot.deleteMany({}); // Nettoie les anciens créneaux
+  if (slots.length > 0) {
+    await prisma.timeSlot.createMany({
+      data: slots.map((s) => ({ ...s, status: 'OPEN' })),
+    });
+  }
+
+  console.log(`Seed terminé. ${slots.length} fenêtres de disponibilité créées.`);
 }
 
 main()

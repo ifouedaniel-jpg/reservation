@@ -21,6 +21,12 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
               Prestations
             </Link>
             <Link
+              href="/produits"
+              className="text-sm font-medium text-zinc-600 transition-colors hover:text-rose-600"
+            >
+              Produits
+            </Link>
+            <Link
               href="/ma-reservation"
               className="text-sm font-medium text-zinc-600 transition-colors hover:text-rose-600"
             >
@@ -35,17 +41,7 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
       <footer className="border-t bg-zinc-950 py-8 text-sm text-zinc-500">
         <div className="mx-auto max-w-5xl px-4 text-center">
           <p className="mb-2 font-semibold text-white">{businessName}</p>
-          <p>
-            &copy; {new Date().getFullYear()} {businessName}
-            {' · '}
-            <Link href="/mentions-legales" className="transition-colors hover:text-zinc-300">
-              Mentions légales
-            </Link>
-            {' · '}
-            <Link href="/confidentialite" className="transition-colors hover:text-zinc-300">
-              Politique de confidentialité
-            </Link>
-          </p>
+          <p>&copy; {new Date().getFullYear()} {businessName}</p>
         </div>
       </footer>
     </div>

@@ -33,6 +33,9 @@ function assertTransition(currentStatus: string, targetStatus: string) {
 }
 
 export async function createBooking(input: BookingInput) {
+  const bookingStartsAt = new Date(input.bookingStartsAt);
+  const bookingEndsAt = new Date(input.bookingEndsAt);
+
   return prisma.$transaction(
     async (tx) => {
       const service = await tx.service.findUnique({
@@ -47,7 +50,24 @@ export async function createBooking(input: BookingInput) {
         throw new BookingError('SLOT_NOT_AVAILABLE');
       }
 
-      // Calculate final price (server-side, never trust client)
+      // Vérifie que le RDV est bien dans la fenêtre de disponibilité
+      if (bookingStartsAt < slot.startsAt || bookingEndsAt > slot.endsAt) {
+        throw new BookingError('SLOT_NOT_AVAILABLE');
+      }
+
+      // Anti-double-booking : vérifie l'absence de chevauchement avec les réservations actives
+      const overlapping = await tx.booking.count({
+        where: {
+          timeSlotId: slot.id,
+          status: { in: ['PENDING', 'CONFIRMED'] },
+          bookingStartsAt: { lt: bookingEndsAt },
+          bookingEndsAt: { gt: bookingStartsAt },
+        },
+      });
+      if (overlapping > 0) {
+        throw new BookingError('SLOT_NOT_AVAILABLE');
+      }
+
       let priceCentsAtBooking = service.priceCents;
       let storedOptions: string | null = null;
       if (input.selectedOptionsJson && service.priceMatrix) {
@@ -63,25 +83,40 @@ export async function createBooking(input: BookingInput) {
         }
       }
 
-      await tx.timeSlot.update({
-        where: { id: slot.id },
-        data: { status: 'PENDING' },
-      });
+      // Résoudre les prix des produits dans la transaction
+      let productLines: { productId: string; quantity: number; priceCentsAtBooking: number }[] = [];
+      if (input.selectedProducts && input.selectedProducts.length > 0) {
+        const productIds = input.selectedProducts.map((p) => p.productId);
+        const products = await tx.product.findMany({
+          where: { id: { in: productIds }, active: true },
+          select: { id: true, priceCents: true },
+        });
+        productLines = input.selectedProducts
+          .map((sp) => {
+            const p = products.find((pr) => pr.id === sp.productId);
+            if (!p) return null;
+            return { productId: p.id, quantity: sp.quantity, priceCentsAtBooking: p.priceCents };
+          })
+          .filter((x): x is NonNullable<typeof x> => x !== null);
+      }
 
       const booking = await tx.booking.create({
         data: {
           customerFirstName: input.firstName,
-          customerLastName: input.lastName,
           customerPhone: input.phone,
-          customerInstagram: input.instagram ?? null,
-          customerEmail: input.email ?? null,
-          preferredChannel: input.preferredChannel,
           notes: input.notes ?? null,
           selectedOptions: storedOptions,
           serviceId: input.serviceId,
           timeSlotId: input.timeSlotId,
+          bookingStartsAt,
+          bookingEndsAt,
           priceCentsAtBooking,
+          paymentReference: input.paymentReference ?? null,
+          paymentProofUrl: input.paymentProofUrl ?? null,
           status: 'PENDING',
+          products: productLines.length > 0
+            ? { create: productLines }
+            : undefined,
         },
       });
 
@@ -97,11 +132,6 @@ export async function confirmBooking(id: string) {
       const booking = await tx.booking.findUnique({ where: { id } });
       if (!booking) throw new BookingTransitionError('BOOKING_NOT_FOUND');
       assertTransition(booking.status, 'CONFIRMED');
-
-      await tx.timeSlot.update({
-        where: { id: booking.timeSlotId },
-        data: { status: 'BOOKED' },
-      });
 
       return tx.booking.update({
         where: { id },
@@ -119,11 +149,6 @@ export async function rejectBooking(id: string, reason?: string) {
       if (!booking) throw new BookingTransitionError('BOOKING_NOT_FOUND');
       assertTransition(booking.status, 'REJECTED');
 
-      await tx.timeSlot.update({
-        where: { id: booking.timeSlotId },
-        data: { status: 'OPEN' },
-      });
-
       return tx.booking.update({
         where: { id },
         data: { status: 'REJECTED', cancellationReason: reason ?? null },
@@ -139,11 +164,6 @@ export async function cancelBooking(id: string, reason?: string) {
       const booking = await tx.booking.findUnique({ where: { id } });
       if (!booking) throw new BookingTransitionError('BOOKING_NOT_FOUND');
       assertTransition(booking.status, 'CANCELLED');
-
-      await tx.timeSlot.update({
-        where: { id: booking.timeSlotId },
-        data: { status: 'OPEN' },
-      });
 
       return tx.booking.update({
         where: { id },
@@ -179,10 +199,7 @@ export async function anonymizeBooking(id: string) {
     where: { id },
     data: {
       customerFirstName: '[supprimé]',
-      customerLastName: '[supprimé]',
       customerPhone: '[supprimé]',
-      customerEmail: '[supprimé]',
-      customerInstagram: '[supprimé]',
       notes: '[supprimé]',
     },
   });

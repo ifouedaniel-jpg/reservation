@@ -20,17 +20,17 @@ import {
   cancelBookingAction,
   markCompletedAction,
   markNoShowAction,
+  type WhatsappData,
 } from '@/server/actions/booking';
 
-type ActionResult = { ok: boolean; error?: string };
 type Props = { bookingId: string; status: string };
 
 export default function BookingActions({ bookingId, status }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
-
-  function handle(action: () => Promise<ActionResult>) {
+  const [whatsapp, setWhatsapp] = useState<WhatsappData | null>(null);
+  function handle(action: () => Promise<{ ok: boolean; error?: string }>) {
     startTransition(async () => {
       setError(null);
       const result = await action();
@@ -42,76 +42,123 @@ export default function BookingActions({ bookingId, status }: Props) {
     });
   }
 
-  if (status === 'PENDING') {
-    return (
-      <div className="flex flex-wrap items-center gap-3">
-        {error && <p className="text-sm text-destructive">{error}</p>}
-
-        <ConfirmDialog
-          title="Valider la réservation ?"
-          description="La cliente recevra une confirmation via son canal de contact."
-          actionLabel="Valider"
-          onConfirm={() => handle(() => confirmBookingAction(bookingId))}
-          disabled={isPending}
-        >
-          <Button size="sm" disabled={isPending}>Valider</Button>
-        </ConfirmDialog>
-
-        <ConfirmDialog
-          title="Refuser la réservation ?"
-          description="Le créneau sera à nouveau disponible pour d'autres clientes."
-          actionLabel="Refuser"
-          actionVariant="destructive"
-          onConfirm={() => handle(() => rejectBookingAction(bookingId))}
-          disabled={isPending}
-        >
-          <Button variant="destructive" size="sm" disabled={isPending}>Refuser</Button>
-        </ConfirmDialog>
-      </div>
-    );
+  function handleWithWhatsapp(action: () => Promise<{ ok: boolean; error?: string; whatsapp?: WhatsappData | null }>) {
+    startTransition(async () => {
+      setError(null);
+      const result = await action();
+      if (!result.ok) {
+        setError(result.error ?? 'Une erreur est survenue.');
+      } else {
+        setWhatsapp(result.whatsapp ?? null);
+        router.refresh();
+      }
+    });
   }
 
-  if (status === 'CONFIRMED') {
-    return (
-      <div className="flex flex-wrap items-center gap-3">
-        {error && <p className="text-sm text-destructive">{error}</p>}
-
-        <ConfirmDialog
-          title="Marquer comme terminé ?"
-          description="Le rendez-vous sera enregistré comme honoré."
-          actionLabel="Confirmer"
-          onConfirm={() => handle(() => markCompletedAction(bookingId))}
-          disabled={isPending}
-        >
-          <Button variant="secondary" size="sm" disabled={isPending}>Honoré</Button>
-        </ConfirmDialog>
-
-        <ConfirmDialog
-          title="Marquer comme no-show ?"
-          description="La cliente ne s'est pas présentée au rendez-vous."
-          actionLabel="Confirmer"
-          actionVariant="destructive"
-          onConfirm={() => handle(() => markNoShowAction(bookingId))}
-          disabled={isPending}
-        >
-          <Button variant="outline" size="sm" disabled={isPending}>No-show</Button>
-        </ConfirmDialog>
-
-        <ConfirmDialog
-          title="Annuler le rendez-vous ?"
-          description="Le créneau sera remis à disposition."
-          actionLabel="Confirmer l'annulation"
-          actionVariant="destructive"
-          onConfirm={() => handle(() => cancelBookingAction(bookingId))}
-          disabled={isPending}
-        >
-          <Button variant="outline" size="sm" disabled={isPending}>Annuler</Button>
-        </ConfirmDialog>
-      </div>
-    );
+  function markWhatsappSent() {
+    setWhatsapp(null);
+    router.refresh();
   }
 
-  return null;
+  return (
+    <div className="space-y-4">
+      {/* Boutons d'action */}
+      <div className="flex flex-wrap items-center gap-3">
+        {error && <p className="text-sm text-destructive w-full">{error}</p>}
+
+        {status === 'PENDING' && (
+          <>
+            <ConfirmDialog
+              title="Valider la réservation ?"
+              description="La cliente recevra une confirmation via son canal de contact."
+              actionLabel="Valider"
+              onConfirm={() => handleWithWhatsapp(() => confirmBookingAction(bookingId))}
+              disabled={isPending}
+            >
+              <Button size="sm" disabled={isPending} className="bg-green-600 hover:bg-green-700 text-white">
+                Valider
+              </Button>
+            </ConfirmDialog>
+
+            <ConfirmDialog
+              title="Refuser la réservation ?"
+              description="Le créneau sera à nouveau disponible pour d'autres clientes."
+              actionLabel="Refuser"
+              actionVariant="destructive"
+              onConfirm={() => handleWithWhatsapp(() => rejectBookingAction(bookingId))}
+              disabled={isPending}
+            >
+              <Button size="sm" disabled={isPending} className="bg-red-600 hover:bg-red-700 text-white">
+                Refuser
+              </Button>
+            </ConfirmDialog>
+          </>
+        )}
+
+        {status === 'CONFIRMED' && (
+          <>
+            <ConfirmDialog
+              title="Marquer comme terminé ?"
+              description="Le rendez-vous sera enregistré comme honoré."
+              actionLabel="Confirmer"
+              onConfirm={() => handle(() => markCompletedAction(bookingId))}
+              disabled={isPending}
+            >
+              <Button variant="secondary" size="sm" disabled={isPending}>Honoré</Button>
+            </ConfirmDialog>
+
+            <ConfirmDialog
+              title="Marquer comme no-show ?"
+              description="La cliente ne s'est pas présentée au rendez-vous."
+              actionLabel="Confirmer"
+              actionVariant="destructive"
+              onConfirm={() => handle(() => markNoShowAction(bookingId))}
+              disabled={isPending}
+            >
+              <Button variant="outline" size="sm" disabled={isPending}>No-show</Button>
+            </ConfirmDialog>
+
+            <ConfirmDialog
+              title="Annuler le rendez-vous ?"
+              description="Le créneau sera remis à disposition."
+              actionLabel="Confirmer l'annulation"
+              actionVariant="destructive"
+              onConfirm={() => handle(() => cancelBookingAction(bookingId))}
+              disabled={isPending}
+            >
+              <Button variant="outline" size="sm" disabled={isPending}>Annuler</Button>
+            </ConfirmDialog>
+          </>
+        )}
+      </div>
+
+      {/* Panneau WhatsApp */}
+      {whatsapp && (
+        <div className="rounded-xl border border-green-200 bg-green-50 dark:bg-green-950/20 dark:border-green-800 p-4 space-y-3">
+          <p className="text-sm font-medium text-green-800 dark:text-green-200">
+            Envoyer le message WhatsApp à la cliente
+          </p>
+          <p className="text-xs text-green-700 dark:text-green-300 leading-relaxed whitespace-pre-line line-clamp-3">
+            {whatsapp.message}
+          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            <a href={whatsapp.link} target="_blank" rel="noopener noreferrer">
+              <Button size="sm" className="bg-[#25D366] hover:bg-[#1ebe5d] text-white">
+                Ouvrir WhatsApp →
+              </Button>
+            </a>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={markWhatsappSent}
+            >
+              Fermer
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 // ── Sous-composant ─────────────────────────────────────────────────────────────

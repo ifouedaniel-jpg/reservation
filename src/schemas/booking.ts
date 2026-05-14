@@ -1,34 +1,31 @@
 import { z } from 'zod';
 
-export const PREFERRED_CHANNELS = ['WHATSAPP', 'INSTAGRAM', 'SMS', 'EMAIL'] as const;
-export type PreferredChannel = (typeof PREFERRED_CHANNELS)[number];
+export const selectedProductSchema = z.object({
+  productId: z.string().min(1),
+  quantity: z.number().int().min(1).max(20),
+});
 
 export const bookingInputSchema = z
   .object({
     firstName: z.string().min(1, 'Prénom requis'),
-    lastName: z.string().min(1, 'Nom requis'),
     phone: z.string().regex(/^\+\d{10,15}$/, 'Numéro invalide (ex : +33612345678)'),
-    instagram: z.string().optional(),
-    email: z.string().email('Email invalide').optional().or(z.literal('')),
-    preferredChannel: z.enum(PREFERRED_CHANNELS, {
-      error: 'Canal de contact requis',
-    }),
     notes: z.string().max(500, '500 caractères maximum').optional(),
-    gdprConsent: z.literal(true, {
-      error: 'Vous devez accepter pour continuer',
-    }),
     serviceId: z.string().min(1),
     timeSlotId: z.string().min(1),
+    bookingStartsAt: z.string().datetime(),
+    bookingEndsAt: z.string().datetime(),
     selectedOptionsJson: z.string().optional(),
+    selectedProducts: z.array(selectedProductSchema).optional(),
+    paymentReference: z.string().max(200).optional(),
+    paymentProofUrl: z.string().optional(),
   })
-  .superRefine((data, ctx) => {
-    if (data.preferredChannel === 'EMAIL' && !data.email) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'Email requis pour ce canal de contact',
-        path: ['email'],
-      });
+  .refine(
+    (data) => !!data.paymentReference?.trim() || !!data.paymentProofUrl,
+    {
+      message: "Une référence de paiement ou une capture d'écran est requise",
+      path: ['paymentReference'],
     }
-  });
+  );
 
 export type BookingInput = z.infer<typeof bookingInputSchema>;
+export type SelectedProduct = z.infer<typeof selectedProductSchema>;

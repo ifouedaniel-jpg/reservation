@@ -1,13 +1,15 @@
 import type { Metadata } from "next"
 import Link from "next/link"
 import { notFound } from "next/navigation"
+import { addMinutes } from "date-fns"
 import { prisma } from "@/lib/db"
-import BookingForm from "@/components/booking/BookingForm"
 import { parsePriceMatrix, selectedOptionsSchema, calculatePrice, getDurationMinutes } from "@/schemas/priceMatrix"
+import { getSetting } from "@/lib/settings"
+import FormulaireClient from "./FormulaireClient"
 
 type Props = {
   params: Promise<{ serviceSlug: string }>
-  searchParams: Promise<{ slot?: string; selectedOptions?: string }>
+  searchParams: Promise<{ windowId?: string; startTime?: string; selectedOptions?: string }>
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -19,16 +21,23 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function FormulaireReservationPage({ params, searchParams }: Props) {
   const { serviceSlug } = await params
-  const { slot: slotId, selectedOptions: selectedOptionsJson } = await searchParams
+  const { windowId, startTime, selectedOptions: selectedOptionsJson } = await searchParams
 
-  if (!slotId) notFound()
+  if (!windowId || !startTime) notFound()
 
-  const [service, slot] = await Promise.all([
+  const bookingStartsAt = new Date(startTime)
+  if (isNaN(bookingStartsAt.getTime())) notFound()
+
+  const [service, window, paypalLink] = await Promise.all([
     prisma.service.findUnique({ where: { slug: serviceSlug, active: true } }),
-    prisma.timeSlot.findUnique({ where: { id: slotId, status: "OPEN" } }),
+    prisma.timeSlot.findUnique({ where: { id: windowId, status: "OPEN" } }),
+    getSetting('paypal_link'),
   ])
 
-  if (!service || !slot) notFound()
+  if (!service || !window) notFound()
+
+  // Vérifie que l'heure de début est dans la fenêtre
+  if (bookingStartsAt < window.startsAt || bookingStartsAt >= window.endsAt) notFound()
 
   let priceCentsAtBooking = service.priceCents
   let estimatedDurationMinutes: number | null = null
@@ -51,6 +60,26 @@ export default async function FormulaireReservationPage({ params, searchParams }
     }
   }
 
+  const durationMinutes = estimatedDurationMinutes ?? service.durationMinutes
+  const bookingEndsAt = addMinutes(bookingStartsAt, durationMinutes)
+
+  // Vérifie que la fin du RDV ne dépasse pas la fenêtre
+  if (bookingEndsAt > window.endsAt) notFound()
+
+  // Re-validation serveur : vérifie l'absence de chevauchement
+  const overlapping = await prisma.booking.count({
+    where: {
+      timeSlotId: windowId,
+      status: { in: ["PENDING", "CONFIRMED"] },
+      bookingStartsAt: { lt: bookingEndsAt },
+      bookingEndsAt: { gt: bookingStartsAt },
+    },
+  })
+  if (overlapping > 0) {
+    // Le créneau a été pris entre le moment où l'utilisateur a sélectionné et maintenant
+    notFound()
+  }
+
   return (
     <div className="mx-auto max-w-xl px-4 py-10">
       <Link
@@ -60,9 +89,9 @@ export default async function FormulaireReservationPage({ params, searchParams }
         ← Changer de créneau
       </Link>
 
-      <h1 className="mb-8 text-2xl font-semibold">Vos coordonnées</h1>
+      <h1 className="mb-8 text-2xl font-semibold">Votre réservation</h1>
 
-      <BookingForm
+      <FormulaireClient
         service={{
           id: service.id,
           name: service.name,
@@ -71,8 +100,13 @@ export default async function FormulaireReservationPage({ params, searchParams }
           priceCentsAtBooking,
           optionsSummary,
         }}
-        slot={{ id: slot.id, startsAt: slot.startsAt.toISOString() }}
+        slot={{
+          windowId: window.id,
+          bookingStartsAt: bookingStartsAt.toISOString(),
+          bookingEndsAt: bookingEndsAt.toISOString(),
+        }}
         selectedOptionsJson={selectedOptionsJson ?? null}
+        paypalLink={paypalLink ?? null}
       />
     </div>
   )

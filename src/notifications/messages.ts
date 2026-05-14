@@ -3,7 +3,7 @@ import { formatParis } from '@/lib/time';
 export type BookingSnapshot = {
   customerFirstName: string;
   service: { name: string; durationMinutes: number };
-  timeSlot: { startsAt: Date };
+  bookingStartsAt: Date;
   publicCode: string;
   priceCentsAtBooking: number;
 };
@@ -26,7 +26,7 @@ function vars(booking: BookingSnapshot) {
   return {
     firstName: booking.customerFirstName,
     service: booking.service.name,
-    date: fmtDate(booking.timeSlot.startsAt),
+    date: fmtDate(booking.bookingStartsAt),
     price: fmtPrice(booking.priceCentsAtBooking),
     address: process.env.NEXT_PUBLIC_BUSINESS_ADDRESS ?? 'notre salon',
     siteUrl: process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000',
@@ -59,7 +59,7 @@ export function buildNotificationContent(
     case 'BOOKING_CANCELLED':
       return {
         subject: `Réservation annulée — ${v.service}`,
-        text: `Bonjour ${v.firstName},\n\nVotre réservation pour *${v.service}* le ${v.date} a été annulée.\n\nN'hésitez pas à reprendre rendez-vous : ${v.siteUrl}/prestations`,
+        text: `Bonjour ${v.firstName},\n\nVotre réservation pour *${v.service}* le ${v.date} a été annulée.\n\nVotre remboursement sera effectué via le même canal que votre paiement dans les meilleurs délais.\n\nN'hésitez pas à reprendre rendez-vous : ${v.siteUrl}/prestations`,
       };
   }
 }

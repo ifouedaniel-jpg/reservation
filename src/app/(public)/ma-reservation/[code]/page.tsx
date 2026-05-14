@@ -7,13 +7,6 @@ import BookingStatusBadge from "@/components/booking/BookingStatusBadge";
 
 type Props = { params: Promise<{ code: string }> };
 
-const CHANNEL_LABELS: Record<string, string> = {
-  WHATSAPP: "WhatsApp",
-  INSTAGRAM: "Instagram",
-  SMS: "SMS",
-  EMAIL: "email",
-};
-
 function formatDuration(minutes: number): string {
   if (minutes < 60) return `${minutes} min`;
   const h = Math.floor(minutes / 60);
@@ -39,15 +32,13 @@ export default async function MaReservationPage({ params }: Props) {
     where: { publicCode: code },
     include: {
       service: true,
-      timeSlot: true,
     },
   });
 
   if (!booking) notFound();
 
-  const slotDate = formatParis(booking.timeSlot.startsAt, "EEEE d MMMM yyyy");
-  const slotTime = formatParis(booking.timeSlot.startsAt, "HH'h'mm");
-  const channelLabel = CHANNEL_LABELS[booking.preferredChannel] ?? booking.preferredChannel;
+  const slotDate = formatParis(booking.bookingStartsAt, "EEEE d MMMM yyyy");
+  const slotTime = `${formatParis(booking.bookingStartsAt, "HH'h'mm")} – ${formatParis(booking.bookingEndsAt, "HH'h'mm")}`;
   const businessAddress = process.env.NEXT_PUBLIC_BUSINESS_ADDRESS ?? "notre salon";
 
   return (
@@ -65,9 +56,9 @@ export default async function MaReservationPage({ params }: Props) {
       {/* Message contextuel selon le statut */}
       <StatusMessage
         status={booking.status}
-        channel={channelLabel}
         address={businessAddress}
         serviceSlug={booking.service.slug}
+        priceCents={booking.priceCentsAtBooking}
       />
 
       {/* Détail de la prestation */}
@@ -77,15 +68,20 @@ export default async function MaReservationPage({ params }: Props) {
           label="Date"
           value={<span className="capitalize">{slotDate}</span>}
         />
-        <Row label="Heure" value={slotTime} />
+        <Row label="Horaire" value={slotTime} />
         <Row label="Durée" value={formatDuration(booking.service.durationMinutes)} />
-        <Row label="Tarif" value={formatPrice(booking.priceCentsAtBooking)} />
-        <Row label="Contact via" value={channelLabel} />
-        <Row
-          label="Nom"
-          value={`${booking.customerFirstName} ${booking.customerLastName}`}
-        />
+        <Row label="Prénom" value={booking.customerFirstName} />
+        <Row label="Téléphone" value={booking.customerPhone} />
         {booking.notes && <Row label="Notes" value={booking.notes} />}
+      </div>
+
+      {/* Paiement */}
+      <div className="mt-6 rounded-xl border bg-muted/40 p-5">
+        <div className="flex items-center justify-between">
+          <span className="text-sm font-medium">Montant à régler</span>
+          <span className="text-xl font-bold">{formatPrice(booking.priceCentsAtBooking)}</span>
+        </div>
+        <p className="mt-1 text-xs text-muted-foreground">Paiement sur place le jour du rendez-vous.</p>
       </div>
 
       <p className="mt-8 text-center text-xs text-muted-foreground">
@@ -108,21 +104,23 @@ function Row({ label, value }: { label: string; value: React.ReactNode }) {
 
 function StatusMessage({
   status,
-  channel,
   address,
   serviceSlug,
+  priceCents,
 }: {
   status: string;
-  channel: string;
   address: string;
   serviceSlug: string;
+  priceCents: number;
 }) {
+  const priceLabel = (priceCents / 100).toLocaleString("fr-FR", { style: "currency", currency: "EUR" });
+
   if (status === "PENDING") {
     return (
       <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-        <p className="font-medium">Demande en attente de validation</p>
+        <p className="font-medium">Demande reçue — en attente de confirmation</p>
         <p className="mt-1 text-amber-800">
-          Vous recevrez une réponse via {channel} bientôt.
+          Vous serez contacté par WhatsApp dès que votre rendez-vous sera confirmé.
         </p>
       </div>
     );
@@ -133,7 +131,8 @@ function StatusMessage({
       <div className="rounded-xl border border-green-200 bg-green-50 p-4 text-sm text-green-900">
         <p className="font-medium">Rendez-vous confirmé ✓</p>
         <p className="mt-1 text-green-800">
-          Rendez-vous à <strong>{address}</strong>. Le paiement s&apos;effectue sur place.
+          Rendez-vous à <strong>{address}</strong>. Merci de prévoir{" "}
+          <strong>{priceLabel}</strong> à régler sur place.
         </p>
       </div>
     );

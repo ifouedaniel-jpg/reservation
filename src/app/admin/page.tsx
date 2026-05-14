@@ -20,13 +20,13 @@ export default async function AdminPage() {
   const [upcomingCount, pendingCount, monthlyRevenue, topServices, nextBookings] =
     await Promise.all([
       prisma.booking.count({
-        where: { status: 'CONFIRMED', timeSlot: { startsAt: { gte: now } } },
+        where: { status: 'CONFIRMED', bookingStartsAt: { gte: now } },
       }),
       prisma.booking.count({ where: { status: 'PENDING' } }),
       prisma.booking.aggregate({
         where: {
           status: 'CONFIRMED',
-          timeSlot: { startsAt: { gte: startMonthUtc, lte: endMonthUtc } },
+          bookingStartsAt: { gte: startMonthUtc, lte: endMonthUtc },
         },
         _sum: { priceCentsAtBooking: true },
       }),
@@ -34,16 +34,16 @@ export default async function AdminPage() {
         by: ['serviceId'],
         where: {
           status: { in: ['CONFIRMED', 'COMPLETED'] },
-          timeSlot: { startsAt: { gte: thirtyDaysAgo } },
+          bookingStartsAt: { gte: thirtyDaysAgo },
         },
         _count: { id: true },
         orderBy: { _count: { id: 'desc' } },
         take: 3,
       }),
       prisma.booking.findMany({
-        where: { status: 'CONFIRMED', timeSlot: { startsAt: { gte: now } } },
-        include: { service: true, timeSlot: true },
-        orderBy: { timeSlot: { startsAt: 'asc' } },
+        where: { status: 'CONFIRMED', bookingStartsAt: { gte: now } },
+        include: { service: true },
+        orderBy: { bookingStartsAt: 'asc' },
         take: 5,
       }),
     ]);
@@ -131,12 +131,12 @@ export default async function AdminPage() {
               >
                 <div className="space-y-0.5">
                   <p className="text-sm font-medium">
-                    {b.customerFirstName} {b.customerLastName}
+                    {b.customerFirstName}
                   </p>
                   <p className="text-xs text-muted-foreground">{b.service.name}</p>
                 </div>
                 <p className="text-sm text-muted-foreground capitalize">
-                  {formatParis(b.timeSlot.startsAt, "EEE d MMM 'à' HH'h'mm")}
+                  {formatParis(b.bookingStartsAt, "EEE d MMM 'à' HH'h'mm")}
                 </p>
               </Link>
             ))}
