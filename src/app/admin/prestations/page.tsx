@@ -54,7 +54,10 @@ export default async function PrestationsPage() {
                     <td className="px-4 py-3 font-medium">{service.name}</td>
                     <td className="px-4 py-3 text-muted-foreground">{service.durationMinutes} min</td>
                     <td className="px-4 py-3 text-muted-foreground">
-                      {(service.priceCents / 100).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+                      <p>{(service.priceCents / 100).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })} <span className="text-xs">sans ext.</span></p>
+                      {service.priceWithExtensionCents && (
+                        <p>{(service.priceWithExtensionCents / 100).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })} <span className="text-xs">avec ext.</span></p>
+                      )}
                     </td>
                     <td className="px-4 py-3">
                       <span className={
