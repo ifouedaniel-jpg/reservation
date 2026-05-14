@@ -32,7 +32,8 @@ export default async function PrestationsPage() {
                 <th className="px-4 py-3 text-left font-medium">Image</th>
                 <th className="px-4 py-3 text-left font-medium">Nom</th>
                 <th className="px-4 py-3 text-left font-medium">Durée</th>
-                <th className="px-4 py-3 text-left font-medium">Prix</th>
+                <th className="px-4 py-3 text-left font-medium">Prix sans ext.</th>
+                <th className="px-4 py-3 text-left font-medium">Prix avec ext.</th>
                 <th className="px-4 py-3 text-left font-medium">Statut</th>
                 <th className="px-4 py-3 text-right font-medium">Actions</th>
               </tr>
@@ -54,10 +55,12 @@ export default async function PrestationsPage() {
                     <td className="px-4 py-3 font-medium">{service.name}</td>
                     <td className="px-4 py-3 text-muted-foreground">{service.durationMinutes} min</td>
                     <td className="px-4 py-3 text-muted-foreground">
-                      <p>{(service.priceCents / 100).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })} <span className="text-xs">sans ext.</span></p>
-                      {service.priceWithExtensionCents && (
-                        <p>{(service.priceWithExtensionCents / 100).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })} <span className="text-xs">avec ext.</span></p>
-                      )}
+                      {(service.priceCents / 100).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+                    </td>
+                    <td className="px-4 py-3 text-muted-foreground">
+                      {service.priceWithExtensionCents
+                        ? (service.priceWithExtensionCents / 100).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })
+                        : '—'}
                     </td>
                     <td className="px-4 py-3">
                       <span className={
