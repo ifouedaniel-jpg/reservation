@@ -27,6 +27,12 @@ export default function HomePage() {
               Prestations
             </Link>
             <Link
+              href="/produits"
+              className="text-sm font-medium text-zinc-400 transition-colors hover:text-white"
+            >
+              Produits
+            </Link>
+            <Link
               href="/ma-reservation"
               className="text-sm font-medium text-zinc-400 transition-colors hover:text-white"
             >
