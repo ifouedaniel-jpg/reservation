@@ -11,7 +11,9 @@ export const gridMatrixSchema = z.object({
   sizes: z.array(z.string().min(1)).min(1),
   lengths: z.array(z.string().min(1)).min(1),
   prices: z.record(z.string(), z.record(z.string(), z.number().int().nonnegative())),
+  extensionPrices: z.record(z.string(), z.record(z.string(), z.number().int().nonnegative())).optional(),
   durations: z.record(z.string(), z.record(z.string(), z.number().int().nonnegative())).optional(),
+  extensionDurations: z.record(z.string(), z.record(z.string(), z.number().int().nonnegative())).optional(),
   options: z.array(priceOptionSchema).default([]),
   notes: z.string().optional(),
 });
@@ -27,6 +29,7 @@ export const selectedOptionsSchema = z.object({
   size: z.string().min(1),
   length: z.string().min(1),
   optionIds: z.array(z.string()).default([]),
+  withExtension: z.boolean().optional(),
 });
 
 export type SelectedOptions = z.infer<typeof selectedOptionsSchema>;
@@ -40,13 +43,24 @@ export function parsePriceMatrix(json: string | null | undefined): PriceMatrix |
   }
 }
 
+export function hasExtensionPricing(matrix: PriceMatrix): boolean {
+  return !!matrix.extensionPrices && Object.keys(matrix.extensionPrices).length > 0;
+}
+
 export function getMinPriceCents(matrix: PriceMatrix): number {
   const all = Object.values(matrix.prices).flatMap((row) => Object.values(row));
   return all.length > 0 ? Math.min(...all) : 0;
 }
 
+export function getMinExtensionPriceCents(matrix: PriceMatrix): number | null {
+  if (!matrix.extensionPrices) return null;
+  const all = Object.values(matrix.extensionPrices).flatMap((row) => Object.values(row));
+  return all.length > 0 ? Math.min(...all) : null;
+}
+
 export function calculatePrice(matrix: PriceMatrix, opts: SelectedOptions): number {
-  const base = matrix.prices[opts.length]?.[opts.size];
+  const grid = opts.withExtension && matrix.extensionPrices ? matrix.extensionPrices : matrix.prices;
+  const base = grid[opts.length]?.[opts.size];
   if (base === undefined) throw new Error(`Combinaison invalide : ${opts.length} / ${opts.size}`);
   const extras = (opts.optionIds ?? []).reduce((sum, id) => {
     const opt = matrix.options.find((o) => o.id === id);
@@ -56,7 +70,8 @@ export function calculatePrice(matrix: PriceMatrix, opts: SelectedOptions): numb
 }
 
 export function getDurationMinutes(matrix: PriceMatrix, opts: SelectedOptions): number | null {
-  if (!matrix.durations) return null;
-  const d = matrix.durations[opts.length]?.[opts.size];
+  const durations = opts.withExtension && matrix.extensionDurations ? matrix.extensionDurations : matrix.durations;
+  if (!durations) return null;
+  const d = durations[opts.length]?.[opts.size];
   return d !== undefined ? d : null;
 }

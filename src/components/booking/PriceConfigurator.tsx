@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
 import type { PriceMatrix, SelectedOptions } from '@/schemas/priceMatrix';
-import { calculatePrice } from '@/schemas/priceMatrix';
+import { calculatePrice, hasExtensionPricing } from '@/schemas/priceMatrix';
 
 type Props = {
   matrix: PriceMatrix;
@@ -35,37 +35,53 @@ export function PriceConfigurator({ matrix, onChange }: Props) {
   const [size, setSize] = useState<string | null>(null);
   const [length, setLength] = useState<string | null>(null);
   const [optionIds, setOptionIds] = useState<string[]>([]);
+  const [withExtension, setWithExtension] = useState<boolean | null>(null);
 
-  function notify(s: string, l: string, ids: string[]) {
-    const opts: SelectedOptions = { type: 'grid', size: s, length: l, optionIds: ids };
+  const showExtensionPicker = hasExtensionPricing(matrix);
+  const extensionReady = !showExtensionPicker || withExtension !== null;
+
+  function notify(s: string, l: string, ids: string[], ext: boolean | null) {
+    if (!extensionReady && ext === null) return;
+    const opts: SelectedOptions = {
+      type: 'grid', size: s, length: l, optionIds: ids,
+      ...(showExtensionPicker ? { withExtension: ext ?? false } : {}),
+    };
     try {
       onChange(opts, calculatePrice(matrix, opts));
     } catch {
-      // invalid combination, don't call onChange
+      // invalid combination
     }
   }
 
   function handleSizeSelect(s: string) {
     setSize(s);
-    if (length) notify(s, length, optionIds);
+    if (length && extensionReady) notify(s, length, optionIds, withExtension);
   }
 
   function handleLengthSelect(l: string) {
     setLength(l);
-    if (size) notify(size, l, optionIds);
+    if (size && extensionReady) notify(size, l, optionIds, withExtension);
+  }
+
+  function handleExtensionSelect(ext: boolean) {
+    setWithExtension(ext);
+    if (size && length) notify(size, length, optionIds, ext);
   }
 
   function toggleOption(id: string) {
     const next = optionIds.includes(id) ? optionIds.filter((x) => x !== id) : [...optionIds, id];
     setOptionIds(next);
-    if (size && length) notify(size, length, next);
+    if (size && length && extensionReady) notify(size, length, next, withExtension);
   }
 
   const currentPrice =
-    size && length
+    size && length && extensionReady
       ? (() => {
           try {
-            return calculatePrice(matrix, { type: 'grid', size, length, optionIds });
+            return calculatePrice(matrix, {
+              type: 'grid', size, length, optionIds,
+              ...(showExtensionPicker ? { withExtension: withExtension ?? false } : {}),
+            });
           } catch {
             return null;
           }
@@ -74,6 +90,25 @@ export function PriceConfigurator({ matrix, onChange }: Props) {
 
   return (
     <div className="space-y-6 rounded-xl border bg-card p-5">
+      {/* Extension */}
+      {showExtensionPicker && (
+        <div className="space-y-3">
+          <p className="text-sm font-medium">Extension</p>
+          <div className="flex flex-wrap gap-2">
+            <Chip
+              label="Sans extension"
+              selected={withExtension === false}
+              onClick={() => handleExtensionSelect(false)}
+            />
+            <Chip
+              label="Avec extension"
+              selected={withExtension === true}
+              onClick={() => handleExtensionSelect(true)}
+            />
+          </div>
+        </div>
+      )}
+
       {/* Taille */}
       <div className="space-y-3">
         <p className="text-sm font-medium">Taille des tresses</p>

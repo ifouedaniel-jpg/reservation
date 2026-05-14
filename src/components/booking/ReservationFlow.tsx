@@ -77,9 +77,10 @@ export function ReservationFlow({ service, availableSlots, priceMatrixJson, payp
 
   const optionsSummary = useMemo(() => {
     if (!matrix || !selectedOptions) return null;
-    const { size, length, optionIds } = selectedOptions as { size?: string; length?: string; optionIds?: string[] };
+    const { size, length, optionIds, withExtension } = selectedOptions as { size?: string; length?: string; optionIds?: string[]; withExtension?: boolean };
     const optLabels = (optionIds ?? []).map((id) => matrix.options.find((o) => o.id === id)?.label).filter(Boolean);
-    return [size, length, ...optLabels].filter(Boolean).join(' · ') || null;
+    const extLabel = withExtension !== undefined ? (withExtension ? 'Avec extension' : 'Sans extension') : null;
+    return [extLabel, size, length, ...optLabels].filter(Boolean).join(' · ') || null;
   }, [matrix, selectedOptions]);
 
   const effectiveDuration = estimatedDurationMinutes ?? service.durationMinutes;

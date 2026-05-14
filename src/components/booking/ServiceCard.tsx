@@ -5,7 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { parsePriceMatrix, getMinPriceCents } from '@/schemas/priceMatrix';
+import { parsePriceMatrix, getMinPriceCents, getMinExtensionPriceCents, hasExtensionPricing } from '@/schemas/priceMatrix';
 import { ImageLightbox } from '@/components/booking/ImageLightbox';
 
 type Props = {
@@ -83,29 +83,52 @@ export function ServiceCard({ service }: Props) {
           <p className="line-clamp-2 text-sm text-zinc-500">{service.description}</p>
           <div className="mt-auto pt-3 space-y-1">
             <span className="text-sm text-zinc-400">{formatDuration(service.durationMinutes)}</span>
-            {service.priceWithExtensionCents ? (
-              <div className="space-y-0.5">
+            {(() => {
+              const matrix = parsePriceMatrix(service.priceMatrix);
+              // Grille avec extension
+              if (matrix && hasExtensionPricing(matrix)) {
+                const minSans = getMinPriceCents(matrix);
+                const minAvec = getMinExtensionPriceCents(matrix);
+                return (
+                  <div className="space-y-0.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-zinc-500">Sans extension</span>
+                      <span className="text-sm font-semibold text-zinc-800">à partir de {formatPrice(minSans)}</span>
+                    </div>
+                    {minAvec !== null && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-zinc-500">Avec extension</span>
+                        <span className="text-sm font-semibold text-rose-600">à partir de {formatPrice(minAvec)}</span>
+                      </div>
+                    )}
+                  </div>
+                );
+              }
+              // Prix fixe avec extension
+              if (service.priceWithExtensionCents) {
+                return (
+                  <div className="space-y-0.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-zinc-500">Sans extension</span>
+                      <span className="text-sm font-semibold text-zinc-800">{formatPrice(service.priceCents)}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-zinc-500">Avec extension</span>
+                      <span className="text-sm font-semibold text-rose-600">{formatPrice(service.priceWithExtensionCents)}</span>
+                    </div>
+                  </div>
+                );
+              }
+              // Prix unique ou grille sans extension
+              return (
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-zinc-500">Sans extension</span>
-                  <span className="text-sm font-semibold text-zinc-800">{formatPrice(service.priceCents)}</span>
+                  <span />
+                  <span className="text-lg font-bold text-rose-600">
+                    {matrix ? `À partir de ${formatPrice(getMinPriceCents(matrix))}` : formatPrice(service.priceCents)}
+                  </span>
                 </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-zinc-500">Avec extension</span>
-                  <span className="text-sm font-semibold text-rose-600">{formatPrice(service.priceWithExtensionCents)}</span>
-                </div>
-              </div>
-            ) : (
-              <div className="flex items-center justify-between">
-                <span />
-                <span className="text-lg font-bold text-rose-600">
-                  {(() => {
-                    const matrix = parsePriceMatrix(service.priceMatrix);
-                    if (matrix) return `À partir de ${formatPrice(getMinPriceCents(matrix))}`;
-                    return formatPrice(service.priceCents);
-                  })()}
-                </span>
-              </div>
-            )}
+              );
+            })()}
           </div>
         </CardContent>
 

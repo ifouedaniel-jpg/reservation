@@ -16,7 +16,10 @@ type GridState = {
   sizes: string[];
   lengths: string[];
   prices: Record<string, Record<string, string>>;
-  durations: Record<string, Record<string, string>>; // in minutes
+  durations: Record<string, Record<string, string>>;
+  hasExtension: boolean;
+  extensionPrices: Record<string, Record<string, string>>;
+  extensionDurations: Record<string, Record<string, string>>;
   addons: GridAddon[];
   notes: string;
 };
@@ -35,6 +38,11 @@ function eurosToCents(euros: string): number {
   return Math.round(parseFloat(euros) * 100) || 0;
 }
 
+function emptyGrid(sizes: string[], lengths: string[]): Record<string, Record<string, string>> {
+  const g: Record<string, Record<string, string>> = {};
+  for (const l of lengths) { g[l] = {}; for (const s of sizes) g[l][s] = ''; }
+  return g;
+}
 
 function serializeToJson(type: MatrixType, grid: GridState): string {
   if (type === 'fixed') return '';
@@ -55,12 +63,34 @@ function serializeToJson(type: MatrixType, grid: GridState): string {
     }
   }
 
+  let extensionPrices: Record<string, Record<string, number>> | undefined;
+  let extensionDurations: Record<string, Record<string, number>> | undefined;
+
+  if (grid.hasExtension) {
+    extensionPrices = {};
+    for (const l of grid.lengths) {
+      extensionPrices[l] = {};
+      for (const s of grid.sizes) extensionPrices[l][s] = eurosToCents(grid.extensionPrices[l]?.[s] ?? '');
+    }
+
+    const hasExtDurations = grid.lengths.some((l) => grid.sizes.some((s) => grid.extensionDurations[l]?.[s]));
+    if (hasExtDurations) {
+      extensionDurations = {};
+      for (const l of grid.lengths) {
+        extensionDurations[l] = {};
+        for (const s of grid.sizes) extensionDurations[l][s] = parseInt(grid.extensionDurations[l]?.[s] ?? '0') || 0;
+      }
+    }
+  }
+
   return JSON.stringify({
     type: 'grid',
     sizes: grid.sizes,
     lengths: grid.lengths,
     prices,
+    ...(extensionPrices ? { extensionPrices } : {}),
     ...(hasDurations ? { durations } : {}),
+    ...(extensionDurations ? { extensionDurations } : {}),
     options: grid.addons
       .filter((a) => a.label.trim())
       .map((a) => ({ id: a.id, label: a.label.trim(), priceCents: eurosToCents(a.price) })),
@@ -69,7 +99,11 @@ function serializeToJson(type: MatrixType, grid: GridState): string {
 }
 
 function initFromJson(json: string | null): { type: MatrixType; grid: GridState } {
-  const defaultGrid: GridState = { sizes: [], lengths: [], prices: {}, durations: {}, addons: [], notes: '' };
+  const defaultGrid: GridState = {
+    sizes: [], lengths: [], prices: {}, durations: {},
+    hasExtension: false, extensionPrices: {}, extensionDurations: {},
+    addons: [], notes: '',
+  };
 
   if (!json) return { type: 'fixed', grid: defaultGrid };
 
@@ -78,13 +112,22 @@ function initFromJson(json: string | null): { type: MatrixType; grid: GridState 
 
   const prices: Record<string, Record<string, string>> = {};
   const durations: Record<string, Record<string, string>> = {};
+  const extensionPrices: Record<string, Record<string, string>> = {};
+  const extensionDurations: Record<string, Record<string, string>> = {};
+
   for (const l of matrix.lengths) {
     prices[l] = {};
     durations[l] = {};
+    extensionPrices[l] = {};
+    extensionDurations[l] = {};
     for (const s of matrix.sizes) {
       prices[l][s] = centsToEuros(matrix.prices[l]?.[s] ?? 0);
       const d = matrix.durations?.[l]?.[s];
       durations[l][s] = d ? String(d) : '';
+      const ep = matrix.extensionPrices?.[l]?.[s];
+      extensionPrices[l][s] = ep !== undefined ? centsToEuros(ep) : '';
+      const ed = matrix.extensionDurations?.[l]?.[s];
+      extensionDurations[l][s] = ed !== undefined ? String(ed) : '';
     }
   }
 
@@ -95,6 +138,9 @@ function initFromJson(json: string | null): { type: MatrixType; grid: GridState 
       lengths: matrix.lengths,
       prices,
       durations,
+      hasExtension: !!matrix.extensionPrices,
+      extensionPrices,
+      extensionDurations,
       addons: matrix.options.map((o) => ({ id: o.id, label: o.label, price: centsToEuros(o.priceCents) })),
       notes: matrix.notes ?? '',
     },
@@ -104,10 +150,7 @@ function initFromJson(json: string | null): { type: MatrixType; grid: GridState 
 // ── Tag input ─────────────────────────────────────────────────────────────────
 
 function TagInput({
-  tags,
-  placeholder,
-  onAdd,
-  onRemove,
+  tags, placeholder, onAdd, onRemove,
 }: {
   tags: string[];
   placeholder: string;
@@ -141,12 +184,7 @@ function TagInput({
 // ── Price / Duration cell table ───────────────────────────────────────────────
 
 function GridTable({
-  sizes,
-  lengths,
-  values,
-  prefix,
-  placeholder,
-  onChange,
+  sizes, lengths, values, prefix, placeholder, onChange,
 }: {
   sizes: string[];
   lengths: string[];
@@ -218,11 +256,15 @@ export function PriceMatrixBuilder({
     setGrid((prev) => {
       const newPrices = { ...prev.prices };
       const newDurations = { ...prev.durations };
+      const newExtPrices = { ...prev.extensionPrices };
+      const newExtDurations = { ...prev.extensionDurations };
       for (const l of prev.lengths) {
         newPrices[l] = { ...(newPrices[l] ?? {}), [label]: '' };
         newDurations[l] = { ...(newDurations[l] ?? {}), [label]: '' };
+        newExtPrices[l] = { ...(newExtPrices[l] ?? {}), [label]: '' };
+        newExtDurations[l] = { ...(newExtDurations[l] ?? {}), [label]: '' };
       }
-      return { ...prev, sizes: [...prev.sizes, label], prices: newPrices, durations: newDurations };
+      return { ...prev, sizes: [...prev.sizes, label], prices: newPrices, durations: newDurations, extensionPrices: newExtPrices, extensionDurations: newExtDurations };
     });
   }
 
@@ -230,11 +272,15 @@ export function PriceMatrixBuilder({
     setGrid((prev) => {
       const newPrices = { ...prev.prices };
       const newDurations = { ...prev.durations };
+      const newExtPrices = { ...prev.extensionPrices };
+      const newExtDurations = { ...prev.extensionDurations };
       for (const l of prev.lengths) {
         const pr = { ...newPrices[l] }; delete pr[label]; newPrices[l] = pr;
         const du = { ...newDurations[l] }; delete du[label]; newDurations[l] = du;
+        const ep = { ...newExtPrices[l] }; delete ep[label]; newExtPrices[l] = ep;
+        const ed = { ...newExtDurations[l] }; delete ed[label]; newExtDurations[l] = ed;
       }
-      return { ...prev, sizes: prev.sizes.filter((s) => s !== label), prices: newPrices, durations: newDurations };
+      return { ...prev, sizes: prev.sizes.filter((s) => s !== label), prices: newPrices, durations: newDurations, extensionPrices: newExtPrices, extensionDurations: newExtDurations };
     });
   }
 
@@ -242,8 +288,17 @@ export function PriceMatrixBuilder({
     setGrid((prev) => {
       const priceRow: Record<string, string> = {};
       const durRow: Record<string, string> = {};
-      for (const s of prev.sizes) { priceRow[s] = ''; durRow[s] = ''; }
-      return { ...prev, lengths: [...prev.lengths, label], prices: { ...prev.prices, [label]: priceRow }, durations: { ...prev.durations, [label]: durRow } };
+      const extPriceRow: Record<string, string> = {};
+      const extDurRow: Record<string, string> = {};
+      for (const s of prev.sizes) { priceRow[s] = ''; durRow[s] = ''; extPriceRow[s] = ''; extDurRow[s] = ''; }
+      return {
+        ...prev,
+        lengths: [...prev.lengths, label],
+        prices: { ...prev.prices, [label]: priceRow },
+        durations: { ...prev.durations, [label]: durRow },
+        extensionPrices: { ...prev.extensionPrices, [label]: extPriceRow },
+        extensionDurations: { ...prev.extensionDurations, [label]: extDurRow },
+      };
     });
   }
 
@@ -251,7 +306,18 @@ export function PriceMatrixBuilder({
     setGrid((prev) => {
       const newPrices = { ...prev.prices }; delete newPrices[label];
       const newDurations = { ...prev.durations }; delete newDurations[label];
-      return { ...prev, lengths: prev.lengths.filter((l) => l !== label), prices: newPrices, durations: newDurations };
+      const newExtPrices = { ...prev.extensionPrices }; delete newExtPrices[label];
+      const newExtDurations = { ...prev.extensionDurations }; delete newExtDurations[label];
+      return { ...prev, lengths: prev.lengths.filter((l) => l !== label), prices: newPrices, durations: newDurations, extensionPrices: newExtPrices, extensionDurations: newExtDurations };
+    });
+  }
+
+  function toggleExtension(enabled: boolean) {
+    setGrid((prev) => {
+      if (enabled) {
+        return { ...prev, hasExtension: true, extensionPrices: emptyGrid(prev.sizes, prev.lengths), extensionDurations: emptyGrid(prev.sizes, prev.lengths) };
+      }
+      return { ...prev, hasExtension: false, extensionPrices: {}, extensionDurations: {} };
     });
   }
 
@@ -298,9 +364,9 @@ export function PriceMatrixBuilder({
 
           {grid.sizes.length > 0 && grid.lengths.length > 0 && (
             <>
-              {/* Tableau des prix */}
+              {/* Tableau des prix sans extension */}
               <div className="space-y-2">
-                <Label>Tarifs (€)</Label>
+                <Label>{grid.hasExtension ? 'Tarifs sans extension (€)' : 'Tarifs (€)'}</Label>
                 <GridTable
                   sizes={grid.sizes}
                   lengths={grid.lengths}
@@ -313,10 +379,11 @@ export function PriceMatrixBuilder({
                 />
               </div>
 
-              {/* Tableau des durées */}
+              {/* Tableau des durées sans extension */}
               <div className="space-y-2">
                 <Label>
-                  Durées (minutes){' '}
+                  {grid.hasExtension ? 'Durées sans extension (min)' : 'Durées (minutes)'}
+                  {' '}
                   <span className="text-xs font-normal text-muted-foreground">(ex : 120 = 2 h)</span>
                 </Label>
                 <GridTable
@@ -330,6 +397,60 @@ export function PriceMatrixBuilder({
                   }
                 />
               </div>
+
+              {/* Toggle extension */}
+              <div className="rounded-lg border border-dashed p-3">
+                <label className="flex cursor-pointer items-center gap-3">
+                  <input
+                    type="checkbox"
+                    checked={grid.hasExtension}
+                    onChange={(e) => toggleExtension(e.target.checked)}
+                    className="h-4 w-4 rounded"
+                  />
+                  <span className="text-sm font-medium">Activer les tarifs avec extension</span>
+                </label>
+                {grid.hasExtension && (
+                  <p className="mt-1 text-xs text-muted-foreground pl-7">
+                    La cliente pourra choisir &laquo; avec ou sans extension &raquo; lors de la réservation.
+                  </p>
+                )}
+              </div>
+
+              {/* Grilles extension */}
+              {grid.hasExtension && (
+                <>
+                  <div className="space-y-2">
+                    <Label>Tarifs avec extension (€)</Label>
+                    <GridTable
+                      sizes={grid.sizes}
+                      lengths={grid.lengths}
+                      values={grid.extensionPrices}
+                      prefix="€"
+                      placeholder="0"
+                      onChange={(l, s, v) =>
+                        setGrid((prev) => ({ ...prev, extensionPrices: { ...prev.extensionPrices, [l]: { ...(prev.extensionPrices[l] ?? {}), [s]: v } } }))
+                      }
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>
+                      Durées avec extension (min){' '}
+                      <span className="text-xs font-normal text-muted-foreground">(optionnel)</span>
+                    </Label>
+                    <GridTable
+                      sizes={grid.sizes}
+                      lengths={grid.lengths}
+                      values={grid.extensionDurations}
+                      prefix="'"
+                      placeholder="0"
+                      onChange={(l, s, v) =>
+                        setGrid((prev) => ({ ...prev, extensionDurations: { ...prev.extensionDurations, [l]: { ...(prev.extensionDurations[l] ?? {}), [s]: v } } }))
+                      }
+                    />
+                  </div>
+                </>
+              )}
             </>
           )}
 
