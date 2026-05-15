@@ -42,7 +42,6 @@ jobs:
       - name: Build
         run: npm run build
         env:
-          # Variables minimales pour que le build Next.js ne plante pas
           DATABASE_URL: file:./dev.db
           AUTH_SECRET: ci-secret-placeholder
           AUTH_URL: http://localhost:3000
@@ -51,17 +50,59 @@ jobs:
           NEXT_PUBLIC_BUSINESS_ADDRESS: CI
 
   deploy:
-    name: Deploy to VPS
+    name: Build & Deploy to VPS
     needs: ci
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
 
     steps:
-      - name: Deploy via SSH
+      - uses: actions/checkout@v4
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npm run db:generate
+
+      - name: Build
+        run: npm run build
+        env:
+          DATABASE_URL: file:./dev.db
+          AUTH_SECRET: ${{ secrets.AUTH_SECRET }}
+          AUTH_URL: ${{ secrets.AUTH_URL }}
+          NEXT_PUBLIC_SITE_URL: ${{ secrets.NEXT_PUBLIC_SITE_URL }}
+          NEXT_PUBLIC_BUSINESS_NAME: ${{ secrets.NEXT_PUBLIC_BUSINESS_NAME }}
+          NEXT_PUBLIC_BUSINESS_ADDRESS: ${{ secrets.NEXT_PUBLIC_BUSINESS_ADDRESS }}
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -p 22022 -H "${{ secrets.VPS_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Sync build artifacts to VPS
+        run: |
+          rsync -az \
+            -e "ssh -i ~/.ssh/id_rsa -p 22022" \
+            .next node_modules public prisma src/generated package.json package-lock.json \
+            ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/var/www/reservation/
+
+      - name: Migrate, prune and restart
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.VPS_HOST }}
           port: 22022
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
-          script: /var/www/reservation/deploy.sh
+          script: |
+            cd /var/www/reservation
+            npx prisma migrate deploy
+            npm prune --production
+            pm2 restart reservation
