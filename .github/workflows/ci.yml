@@ -107,4 +107,4 @@ jobs:
             cd /var/www/reservation
             npx prisma migrate deploy
             npm prune --production
-            pm2 restart reservation
+            pm2 restart reservation 2>/dev/null || pm2 start npm --name reservation -- start
