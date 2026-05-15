@@ -21,11 +21,8 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             <Link href="/admin/prestations" className="text-sm text-muted-foreground hover:text-foreground">
               Prestations
             </Link>
-            <Link href="/admin/disponibilites" className="text-sm text-muted-foreground hover:text-foreground">
-              Disponibilités
-            </Link>
             <Link href="/admin/produits" className="text-sm text-muted-foreground hover:text-foreground">
-              Produits
+              Skincare
             </Link>
             <Link href="/admin/parametres" className="text-sm text-muted-foreground hover:text-foreground">
               Paramètres

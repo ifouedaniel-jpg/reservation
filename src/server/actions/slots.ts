@@ -7,6 +7,37 @@ import { regenerateSlots } from '@/lib/slots';
 import { parisToUtc, formatParis } from '@/lib/time';
 
 type ActionResult = { ok: true; count?: number } | { ok: false; error: string };
+type BulkResult = { ok: true; created: number; skipped: number } | { ok: false; error: string };
+
+export async function createBulkSlots(
+  slots: { date: string; startTime: string; endTime: string }[],
+): Promise<BulkResult> {
+  await requireAdmin();
+
+  if (!slots.length) return { ok: false, error: 'Aucune date fournie' };
+
+  let created = 0;
+  let skipped = 0;
+
+  for (const { date, startTime, endTime } of slots) {
+    const startsAt = parisToUtc(`${date}T${startTime}:00`);
+    const endsAt = parisToUtc(`${date}T${endTime}:00`);
+
+    const overlapping = await prisma.timeSlot.findFirst({
+      where: { AND: [{ startsAt: { lt: endsAt } }, { endsAt: { gt: startsAt } }] },
+    });
+
+    if (overlapping) {
+      skipped++;
+    } else {
+      await prisma.timeSlot.create({ data: { startsAt, endsAt, status: 'OPEN' } });
+      created++;
+    }
+  }
+
+  revalidatePath('/admin/disponibilites');
+  return { ok: true, created, skipped };
+}
 
 export async function regenerateSlotsAction(): Promise<ActionResult> {
   await requireAdmin();

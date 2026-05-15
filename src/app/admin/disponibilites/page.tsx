@@ -74,7 +74,6 @@ export default async function DisponibilitesPage({
         )}
       </section>
 
-      {/* Formulaire ajout */}
       <ManualSlotForm date={dateStr} />
     </div>
   );

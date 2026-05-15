@@ -8,6 +8,7 @@ import interactionPlugin from '@fullcalendar/interaction';
 import frLocale from '@fullcalendar/core/locales/fr';
 import type { EventClickArg, EventSourceFuncArg, EventInput, DatesSetArg } from '@fullcalendar/core';
 import { Button } from '@/components/ui/button';
+import { AvailabilityModal } from '@/components/admin/AvailabilityModal';
 
 function makeFetcher(url: string) {
   return function (
@@ -68,9 +69,12 @@ export default function AdminCalendar() {
             →
           </Button>
         </div>
-        <Button variant="outline" size="sm" onClick={today}>
-          Aujourd&apos;hui
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={today}>
+            Aujourd&apos;hui
+          </Button>
+          <AvailabilityModal onCreated={() => calendarRef.current?.getApi().refetchEvents()} />
+        </div>
       </div>
 
       {/* Légende */}
