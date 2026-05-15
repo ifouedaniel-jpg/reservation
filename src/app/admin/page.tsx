@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic'
 import Link from 'next/link';
 import { startOfMonth, endOfMonth, subDays } from 'date-fns';
 import { prisma } from '@/lib/db';

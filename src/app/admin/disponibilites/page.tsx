@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic'
 import { prisma } from '@/lib/db';
 import { formatParis, parisToUtc } from '@/lib/time';
 import { DateNav } from '@/components/admin/DateNav';
