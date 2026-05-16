@@ -71,10 +71,7 @@ export default function ConfidentialitePage() {
         <h2 className="text-base font-medium">Destinataires des données</h2>
         <p className="text-sm text-muted-foreground">
           Vos données sont accessibles uniquement par {businessName}. Elles ne
-          sont transmises à aucun tiers à des fins commerciales. Les services
-          tiers utilisés (Resend pour les emails) traitent vos données en
-          qualité de sous-traitant et selon leurs propres politiques conformes
-          au RGPD.
+          sont transmises à aucun tiers à des fins commerciales.
         </p>
       </section>
 

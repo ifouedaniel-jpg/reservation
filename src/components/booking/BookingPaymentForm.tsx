@@ -65,10 +65,10 @@ export default function BookingPaymentForm({ service, slot, infoData, selectedOp
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [slotError, setSlotError] = useState<string | null>(null);
   const [successCode, setSuccessCode] = useState<string | null>(null);
-  const [countdown, setCountdown] = useState(5);
+  const [countdown, setCountdown] = useState(10);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const redirectTo = successCode ? `/ma-reservation/${successCode}` : null;
+  const redirectTo = successCode ? '/' : null;
 
   useEffect(() => {
     if (!redirectTo) return;

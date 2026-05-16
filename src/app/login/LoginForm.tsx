@@ -37,7 +37,7 @@ export function LoginForm({ action, callbackUrl }: LoginFormProps) {
                 id="username"
                 name="username"
                 type="text"
-                autoComplete="username"
+                autoComplete="off"
                 required
                 placeholder="Identifiant"
               />

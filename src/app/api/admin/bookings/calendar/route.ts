@@ -7,7 +7,7 @@ const PARIS_TZ = 'Europe/Paris';
 
 export async function GET(request: Request) {
   const session = await auth();
-  if (!session?.user?.email) {
+  if (!session?.user?.id) {
     return NextResponse.json({ error: 'Non autorisé' }, { status: 401 });
   }
 

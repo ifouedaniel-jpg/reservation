@@ -83,7 +83,6 @@ function handleTransitionError(err: unknown, action: string): ActionResult {
 function revalidateBooking(id: string) {
   revalidatePath('/admin/reservations');
   revalidatePath(`/admin/reservations/${id}`);
-  revalidatePath('/ma-reservation', 'layout');
 }
 
 async function notify(bookingId: string, type: NotificationType): Promise<WhatsappData | null> {

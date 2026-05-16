@@ -14,10 +14,9 @@ async function main() {
     12,
   );
   await prisma.admin.upsert({
-    where: { email: process.env.SEED_ADMIN_EMAIL ?? 'admin@example.com' },
-    update: {},
+    where: { name: process.env.SEED_ADMIN_NAME ?? 'Admin' },
+    update: { passwordHash },
     create: {
-      email: process.env.SEED_ADMIN_EMAIL ?? 'admin@example.com',
       passwordHash,
       name: process.env.SEED_ADMIN_NAME ?? 'Admin',
     },

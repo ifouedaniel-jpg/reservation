@@ -7,7 +7,6 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 
 type Props = {
-  meches: string;
   acompte: string;
   cheveux: string;
 };
@@ -36,8 +35,8 @@ function InfoTextarea({
   );
 }
 
-export default function BookingInfoForm({ meches, acompte, cheveux }: Props) {
-  const [values, setValues] = useState({ meches, acompte, cheveux });
+export default function BookingInfoForm({ acompte, cheveux }: Props) {
+  const [values, setValues] = useState({ acompte, cheveux });
   const [isSaving, setIsSaving] = useState(false);
 
   function set(key: keyof typeof values) {
@@ -60,13 +59,6 @@ export default function BookingInfoForm({ meches, acompte, cheveux }: Props) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
-      <InfoTextarea
-        id="meches"
-        label="Réservation & Mèches"
-        description="Une puce par ligne. Affiché en haut du tunnel de réservation."
-        value={values.meches}
-        onChange={set('meches')}
-      />
       <InfoTextarea
         id="acompte"
         label="Acompte & Confirmation"

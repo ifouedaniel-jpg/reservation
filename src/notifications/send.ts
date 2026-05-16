@@ -23,21 +23,29 @@ export async function dispatch(bookingId: string, type: NotificationType): Promi
 
   let status: string;
   let payload: string;
+  let channel: string;
   let link: string | null = null;
   let error: string | null = null;
 
-  try {
-    link = buildWhatsappLink(booking.customerPhone, text);
+  if (type === 'BOOKING_RECEIVED') {
+    channel = 'WEB';
     status = 'SENT';
-    payload = JSON.stringify({ link, message: text });
-  } catch (err) {
-    status = 'FAILED';
-    error = err instanceof Error ? err.message : String(err);
-    payload = '{}';
+    payload = JSON.stringify({ message: text });
+  } else {
+    channel = 'WHATSAPP';
+    try {
+      link = buildWhatsappLink(booking.customerPhone, text);
+      status = 'SENT';
+      payload = JSON.stringify({ link, message: text });
+    } catch (err) {
+      status = 'FAILED';
+      error = err instanceof Error ? err.message : String(err);
+      payload = '{}';
+    }
   }
 
   const log = await prisma.notificationLog.create({
-    data: { bookingId, channel: 'WHATSAPP', type, status, payload, error },
+    data: { bookingId, channel, type, status, payload, error },
   });
 
   return { notificationId: log.id, link, message: text };

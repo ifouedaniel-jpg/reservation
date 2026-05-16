@@ -30,7 +30,6 @@ function vars(booking: BookingSnapshot) {
     price: fmtPrice(booking.priceCentsAtBooking),
     address: process.env.NEXT_PUBLIC_BUSINESS_ADDRESS ?? 'notre salon',
     siteUrl: process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000',
-    trackingUrl: `${process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'}/ma-reservation/${booking.publicCode}`,
   };
 }
 
@@ -44,12 +43,12 @@ export function buildNotificationContent(
     case 'BOOKING_RECEIVED':
       return {
         subject: `Demande reçue — ${v.service}`,
-        text: `Bonjour ${v.firstName} !\n\nNous avons bien reçu votre demande pour *${v.service}* le ${v.date}.\n\nElle est en cours de validation — vous serez contacté(e) très bientôt.\n\nTarif prévu : ${v.price}\nSuivre votre réservation : ${v.trackingUrl}`,
+        text: `Bonjour ${v.firstName} !\n\nNous avons bien reçu votre demande pour *${v.service}* le ${v.date}.\n\nElle est en cours de validation — vous serez contacté(e) très bientôt.\n\nTarif prévu : ${v.price}`,
       };
     case 'BOOKING_CONFIRMED':
       return {
         subject: `Réservation confirmée — ${v.service} ✓`,
-        text: `Bonjour ${v.firstName} !\n\nVotre réservation pour *${v.service}* le ${v.date} est confirmée ✓\n\nRendez-vous à ${v.address}. Le règlement (${v.price}) s'effectue sur place.\n\nSuivre votre réservation : ${v.trackingUrl}`,
+        text: `Bonjour ${v.firstName} !\n\nVotre réservation pour *${v.service}* le ${v.date} est confirmée ✓\n\nRendez-vous à ${v.address}. Le règlement (${v.price}) s'effectue sur place.`,
       };
     case 'BOOKING_REJECTED':
       return {

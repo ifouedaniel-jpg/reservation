@@ -32,12 +32,6 @@ export default function HomePage() {
             >
               Skincare
             </Link>
-            <Link
-              href="/ma-reservation"
-              className="text-sm font-medium text-zinc-400 transition-colors hover:text-white"
-            >
-              Ma réservation
-            </Link>
           </nav>
         </div>
       </header>
@@ -68,12 +62,6 @@ export default function HomePage() {
           >
             <Link href="/prestations">Voir nos prestations</Link>
           </Button>
-          <Link
-            href="/ma-reservation"
-            className="text-sm text-zinc-500 underline-offset-4 transition-colors hover:text-zinc-300 hover:underline"
-          >
-            Suivre ma réservation
-          </Link>
         </div>
 
         {/* Stats déco */}

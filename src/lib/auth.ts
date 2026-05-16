@@ -10,7 +10,6 @@ declare module 'next-auth' {
   interface Session {
     user: {
       id: string;
-      email: string;
       name: string | null;
     };
   }
@@ -28,7 +27,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     },
     session({ session, token }) {
       if (token.sub) session.user.id = token.sub;
-      if (token.email) session.user.email = token.email;
       return session;
     },
   },
@@ -44,18 +42,18 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 });
 
 export async function findAndVerifyAdmin(username: string, password: string) {
-  const admin = await prisma.admin.findFirst({
-    where: { OR: [{ email: username }, { name: username }] },
+  const admin = await prisma.admin.findUnique({
+    where: { name: username },
   });
   if (!admin) return null;
   const isValid = await bcrypt.compare(password, admin.passwordHash);
   if (!isValid) return null;
-  return { id: admin.id, email: admin.email, name: admin.name };
+  return { id: admin.id, name: admin.name };
 }
 
 export async function requireAdmin(): Promise<Session> {
   const session = await auth();
-  if (!session?.user?.email) {
+  if (!session?.user?.id) {
     redirect('/login');
   }
   return session as Session;

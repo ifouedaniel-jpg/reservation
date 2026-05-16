@@ -26,12 +26,6 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
             >
               Skincare
             </Link>
-            <Link
-              href="/ma-reservation"
-              className="text-sm font-medium text-zinc-600 transition-colors hover:text-rose-600"
-            >
-              Ma réservation
-            </Link>
           </nav>
         </div>
       </header>

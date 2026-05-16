@@ -45,11 +45,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function ReserverPage({ params }: Props) {
   const { serviceSlug } = await params
 
-  const [service, paypalLink, products, infoMeches, infoAcompte, infoCheveux] = await Promise.all([
+  const [service, paypalLink, products, infoAcompte, infoCheveux] = await Promise.all([
     prisma.service.findUnique({ where: { slug: serviceSlug, active: true } }),
     getSetting('paypal_link'),
     prisma.product.findMany({ where: { active: true }, orderBy: { sortOrder: 'asc' } }),
-    getSetting('info_booking_meches'),
     getSetting('info_booking_acompte'),
     getSetting('info_booking_cheveux'),
   ])
@@ -113,10 +112,7 @@ export default async function ReserverPage({ params }: Props) {
 
       {/* Infos importantes avant réservation */}
       <div className="mb-8 rounded-xl border border-rose-100 bg-rose-50/60 p-5 space-y-5 text-sm">
-        <InfoBlock title="Réservation & Mèches" text={infoMeches ?? BOOKING_INFO_DEFAULTS.meches} />
-        <div className="border-t border-rose-100 pt-4">
-          <InfoBlock title="Acompte & Confirmation" text={infoAcompte ?? BOOKING_INFO_DEFAULTS.acompte} />
-        </div>
+        <InfoBlock title="Acompte & Confirmation" text={infoAcompte ?? BOOKING_INFO_DEFAULTS.acompte} />
         <div className="border-t border-rose-100 pt-4">
           <InfoBlock title="État des cheveux & retard" text={infoCheveux ?? BOOKING_INFO_DEFAULTS.cheveux} />
         </div>

@@ -37,7 +37,6 @@ export default async function ParametresPage() {
             </p>
           </div>
           <BookingInfoForm
-            meches={bookingInfos.meches}
             acompte={bookingInfos.acompte}
             cheveux={bookingInfos.cheveux}
           />
