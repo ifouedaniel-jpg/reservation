@@ -37,14 +37,16 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       async authorize(credentials) {
         const parsed = loginSchema.safeParse(credentials);
         if (!parsed.success) return null;
-        return findAndVerifyAdmin(parsed.data.email, parsed.data.password);
+        return findAndVerifyAdmin(parsed.data.username, parsed.data.password);
       },
     }),
   ],
 });
 
-export async function findAndVerifyAdmin(email: string, password: string) {
-  const admin = await prisma.admin.findUnique({ where: { email } });
+export async function findAndVerifyAdmin(username: string, password: string) {
+  const admin = await prisma.admin.findFirst({
+    where: { OR: [{ email: username }, { name: username }] },
+  });
   if (!admin) return null;
   const isValid = await bcrypt.compare(password, admin.passwordHash);
   if (!isValid) return null;

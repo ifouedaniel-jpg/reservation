@@ -8,12 +8,12 @@ export type LoginState = { ok: false; error: string } | { ok: true } | null;
 
 export async function loginAction(_prevState: LoginState, formData: FormData): Promise<LoginState> {
   const parsed = loginSchema.safeParse({
-    email: formData.get('email'),
+    username: formData.get('username'),
     password: formData.get('password'),
   });
 
   if (!parsed.success) {
-    return { ok: false, error: 'Email ou mot de passe invalide.' };
+    return { ok: false, error: 'Identifiant ou mot de passe invalide.' };
   }
 
   const callbackUrl = (formData.get('callbackUrl') as string) || '/admin';
@@ -21,13 +21,13 @@ export async function loginAction(_prevState: LoginState, formData: FormData): P
 
   try {
     await signIn('credentials', {
-      email: parsed.data.email,
+      username: parsed.data.username,
       password: parsed.data.password,
       redirectTo: safeRedirect,
     });
   } catch (error) {
     if (error instanceof AuthError) {
-      return { ok: false, error: 'Email ou mot de passe incorrect.' };
+      return { ok: false, error: 'Identifiant ou mot de passe incorrect.' };
     }
     throw error;
   }

@@ -32,14 +32,14 @@ export function LoginForm({ action, callbackUrl }: LoginFormProps) {
             )}
 
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="username">Identifiant</Label>
               <Input
-                id="email"
-                name="email"
-                type="email"
-                autoComplete="email"
+                id="username"
+                name="username"
+                type="text"
+                autoComplete="username"
                 required
-                placeholder="admin@exemple.com"
+                placeholder="Identifiant"
               />
             </div>
 
