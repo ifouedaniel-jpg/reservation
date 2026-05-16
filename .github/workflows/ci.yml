@@ -87,6 +87,9 @@ jobs:
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -p 22022 -H "${{ secrets.VPS_HOST }}" >> ~/.ssh/known_hosts
 
+      - name: Prune dev dependencies before sync
+        run: npm prune --production
+
       - name: Sync build artifacts to VPS
         run: |
           rsync -az \
@@ -94,7 +97,7 @@ jobs:
             .next node_modules public prisma src/generated package.json package-lock.json \
             ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/var/www/reservation/
 
-      - name: Migrate, prune and restart
+      - name: Migrate and restart
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.VPS_HOST }}
@@ -106,5 +109,4 @@ jobs:
             [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
             cd /var/www/reservation
             npx prisma migrate deploy
-            npm prune --production
-            pm2 restart reservation 2>/dev/null || pm2 start npm --name reservation -- start
+            pm2 restart reservation 2>/dev/null || PORT=3001 pm2 start npm --name reservation -- start
