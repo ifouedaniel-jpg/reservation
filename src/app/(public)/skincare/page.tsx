@@ -20,7 +20,7 @@ export default async function ProduitsPage() {
       <div className="mb-8 space-y-1">
         <h1 className="text-2xl font-semibold">Produits cosmétiques</h1>
         <p className="text-sm text-muted-foreground">
-          Commandez lors de votre réservation — produits remis le jour de votre rendez-vous.
+          Commandez et choisissez votre mode de livraison (récupérer sur place, livraison — les frais de livraison ne sont pas inclus).
         </p>
       </div>
 

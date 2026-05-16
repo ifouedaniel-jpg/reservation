@@ -140,7 +140,7 @@ export function AvailabilityModal({ onCreated }: Props) {
         <Button size="sm">+ Disponibilité</Button>
       </DialogTrigger>
 
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="w-full max-w-lg max-h-[90vh] overflow-y-auto mx-auto">
         <DialogHeader>
           <DialogTitle>Ajouter des disponibilités</DialogTitle>
         </DialogHeader>
@@ -170,7 +170,7 @@ export function AvailabilityModal({ onCreated }: Props) {
         {/* ── Mode unitaire ── */}
         {mode === 'unitaire' && (
           <form onSubmit={handleUnitSubmit} className="space-y-4">
-            <div className="flex flex-wrap gap-4">
+            <div className="flex flex-col sm:flex-row sm:flex-wrap gap-4">
               <div className="space-y-1.5">
                 <Label htmlFor="unit-date">Date</Label>
                 <Input
@@ -179,19 +179,19 @@ export function AvailabilityModal({ onCreated }: Props) {
                   value={unitDate}
                   min={todayStr()}
                   onChange={(e) => setUnitDate(e.target.value)}
-                  className="w-44"
+                  className="w-full sm:w-44"
                   required
                 />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="unit-start">Début</Label>
                 <Input id="unit-start" type="time" value={unitStart}
-                  onChange={(e) => setUnitStart(e.target.value)} className="w-32" required />
+                  onChange={(e) => setUnitStart(e.target.value)} className="w-full sm:w-32" required />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="unit-end">Fin</Label>
                 <Input id="unit-end" type="time" value={unitEnd}
-                  onChange={(e) => setUnitEnd(e.target.value)} className="w-32" required />
+                  onChange={(e) => setUnitEnd(e.target.value)} className="w-full sm:w-32" required />
               </div>
             </div>
             {!unitTimeValid && <p className="text-sm text-destructive">La fin doit être après le début.</p>}
@@ -206,7 +206,7 @@ export function AvailabilityModal({ onCreated }: Props) {
         {/* ── Mode bloc ── */}
         {(mode === 'consecutive' || mode === 'recurrence') && (
           <form onSubmit={handleBulkSubmit} className="space-y-4">
-            <div className="flex flex-wrap gap-4">
+            <div className="flex flex-col sm:flex-row sm:flex-wrap gap-4">
               <div className="space-y-1.5">
                 <Label htmlFor="bulk-date">À partir du</Label>
                 <Input
@@ -215,7 +215,7 @@ export function AvailabilityModal({ onCreated }: Props) {
                   value={startDate}
                   min={todayStr()}
                   onChange={(e) => setStartDate(e.target.value)}
-                  className="w-44"
+                  className="w-full sm:w-44"
                   required
                 />
               </div>
@@ -227,7 +227,7 @@ export function AvailabilityModal({ onCreated }: Props) {
                     id="bulk-dow"
                     value={dayOfWeek}
                     onChange={(e) => setDayOfWeek(Number(e.target.value))}
-                    className="h-9 rounded-md border border-input bg-transparent px-3 text-sm"
+                    className="h-9 w-full sm:w-auto rounded-md border border-input bg-transparent px-3 text-sm"
                   >
                     {DAYS_OF_WEEK.map((d) => (
                       <option key={d.value} value={d.value}>{d.label}</option>
@@ -247,7 +247,7 @@ export function AvailabilityModal({ onCreated }: Props) {
                   max={30}
                   value={count}
                   onChange={(e) => setCount(Number(e.target.value))}
-                  className="w-24"
+                  className="w-full sm:w-24"
                   required
                 />
               </div>
@@ -255,12 +255,12 @@ export function AvailabilityModal({ onCreated }: Props) {
               <div className="space-y-1.5">
                 <Label htmlFor="bulk-start">Début</Label>
                 <Input id="bulk-start" type="time" value={bulkStart}
-                  onChange={(e) => setBulkStart(e.target.value)} className="w-32" required />
+                  onChange={(e) => setBulkStart(e.target.value)} className="w-full sm:w-32" required />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="bulk-end">Fin</Label>
                 <Input id="bulk-end" type="time" value={bulkEnd}
-                  onChange={(e) => setBulkEnd(e.target.value)} className="w-32" required />
+                  onChange={(e) => setBulkEnd(e.target.value)} className="w-full sm:w-32" required />
               </div>
             </div>
 

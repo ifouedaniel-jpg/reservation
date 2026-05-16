@@ -7,6 +7,7 @@ import { calculatePrice, hasExtensionPricing } from '@/schemas/priceMatrix';
 
 type Props = {
   matrix: PriceMatrix;
+  basePriceCents?: number;
   onChange: (opts: SelectedOptions, priceCents: number) => void;
 };
 
@@ -31,11 +32,64 @@ function Chip({ label, selected, onClick }: { label: string; selected: boolean; 
   );
 }
 
-export function PriceConfigurator({ matrix, onChange }: Props) {
+export function PriceConfigurator({ matrix, basePriceCents = 0, onChange }: Props) {
   const [size, setSize] = useState<string | null>(null);
   const [length, setLength] = useState<string | null>(null);
   const [optionIds, setOptionIds] = useState<string[]>([]);
   const [withExtension, setWithExtension] = useState<boolean | null>(null);
+
+  // ── Mode prix fixe avec options ───────────────────────────────────────────
+  if (matrix.type === 'fixed') {
+    const extras = optionIds.reduce((sum, id) => {
+      const opt = matrix.options.find((o) => o.id === id);
+      return sum + (opt?.priceCents ?? 0);
+    }, 0);
+
+    function toggleFixed(id: string) {
+      const next = optionIds.includes(id) ? optionIds.filter((x) => x !== id) : [...optionIds, id];
+      setOptionIds(next);
+      const extrasNext = next.reduce((sum, i) => {
+        const opt = matrix.options.find((o) => o.id === i);
+        return sum + (opt?.priceCents ?? 0);
+      }, 0);
+      onChange({ type: 'fixed', optionIds: next }, basePriceCents + extrasNext);
+    }
+
+    if (matrix.options.length === 0) return null;
+
+    return (
+      <div className="space-y-4 rounded-xl border bg-card p-5">
+        <p className="text-sm font-medium">Options</p>
+        <div className="flex flex-wrap gap-2">
+          {matrix.options.map((opt) => (
+            <button
+              key={opt.id}
+              type="button"
+              onClick={() => toggleFixed(opt.id)}
+              className={cn(
+                'rounded-lg border px-4 py-2 text-sm transition-colors',
+                optionIds.includes(opt.id)
+                  ? 'border-primary bg-primary/10 font-medium text-primary'
+                  : 'border-border bg-background hover:bg-accent',
+              )}
+            >
+              {opt.label}{' '}
+              <span className="text-xs opacity-70">+{formatPrice(opt.priceCents)}</span>
+            </button>
+          ))}
+        </div>
+        {matrix.notes && (
+          <p className="rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-800">ℹ️ {matrix.notes}</p>
+        )}
+        {extras > 0 && (
+          <div className="flex items-center justify-between border-t pt-4">
+            <span className="text-sm text-muted-foreground">Supplément</span>
+            <span className="text-lg font-bold text-primary">+{formatPrice(extras)}</span>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   const showExtensionPicker = hasExtensionPricing(matrix);
   const extensionReady = !showExtensionPicker || withExtension !== null;

@@ -45,7 +45,17 @@ function emptyGrid(sizes: string[], lengths: string[]): Record<string, Record<st
 }
 
 function serializeToJson(type: MatrixType, grid: GridState): string {
-  if (type === 'fixed') return '';
+  if (type === 'fixed') {
+    const options = grid.addons
+      .filter((a) => a.label.trim())
+      .map((a) => ({ id: a.id, label: a.label.trim(), priceCents: eurosToCents(a.price) }));
+    if (options.length === 0 && !grid.notes.trim()) return '';
+    return JSON.stringify({
+      type: 'fixed',
+      options,
+      ...(grid.notes.trim() ? { notes: grid.notes.trim() } : {}),
+    });
+  }
   if (!grid.sizes.length || !grid.lengths.length) return '';
 
   const prices: Record<string, Record<string, number>> = {};
@@ -109,6 +119,17 @@ function initFromJson(json: string | null): { type: MatrixType; grid: GridState 
 
   const matrix = parsePriceMatrix(json);
   if (!matrix) return { type: 'fixed', grid: defaultGrid };
+
+  if (matrix.type === 'fixed') {
+    return {
+      type: 'fixed',
+      grid: {
+        ...defaultGrid,
+        addons: matrix.options.map((o) => ({ id: o.id, label: o.label, price: centsToEuros(o.priceCents) })),
+        notes: matrix.notes ?? '',
+      },
+    };
+  }
 
   const prices: Record<string, Record<string, string>> = {};
   const durations: Record<string, Record<string, string>> = {};
@@ -211,14 +232,13 @@ function GridTable({
               {sizes.map((s) => (
                 <td key={s} className="border-l px-1 py-1">
                   <div className="relative">
-                    <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">{prefix}</span>
                     <input
                       type="number"
                       min="0"
                       step={prefix === '€' ? '0.01' : '1'}
                       value={values[l]?.[s] ?? ''}
                       onChange={(e) => onChange(l, s, e.target.value)}
-                      className="h-8 w-full rounded-sm bg-transparent pl-5 pr-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                      className="h-8 w-full rounded-sm bg-transparent px-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
                       placeholder={placeholder}
                     />
                   </div>
@@ -454,45 +474,44 @@ export function PriceMatrixBuilder({
             </>
           )}
 
-          {/* Suppléments */}
-          <div className="space-y-2">
-            <Label>
-              Suppléments optionnels{' '}
-              <span className="text-xs font-normal text-muted-foreground">(facultatif)</span>
-            </Label>
-            {grid.addons.map((addon) => (
-              <div key={addon.id} className="flex items-center gap-2">
-                <Input
-                  value={addon.label}
-                  onChange={(e) => setGrid((prev) => ({ ...prev, addons: prev.addons.map((a) => a.id === addon.id ? { ...a, label: e.target.value } : a) }))}
-                  placeholder="Ex : Pose de perles"
-                  className="h-8 flex-1 text-sm"
-                />
-                <div className="relative w-28">
-                  <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">+€</span>
-                  <Input
-                    type="number" min="0" step="0.01"
-                    value={addon.price}
-                    onChange={(e) => setGrid((prev) => ({ ...prev, addons: prev.addons.map((a) => a.id === addon.id ? { ...a, price: e.target.value } : a) }))}
-                    placeholder="0"
-                    className="h-8 pl-8 text-sm"
-                  />
-                </div>
-                <button type="button" onClick={() => setGrid((prev) => ({ ...prev, addons: prev.addons.filter((a) => a.id !== addon.id) }))} className="text-lg leading-none text-muted-foreground hover:text-destructive">×</button>
-              </div>
-            ))}
-            <button type="button" onClick={() => setGrid((prev) => ({ ...prev, addons: [...prev.addons, { id: uid(), label: '', price: '' }] }))} className="text-sm text-primary hover:underline">
-              + Ajouter un supplément
-            </button>
-          </div>
-
-          {/* Notes */}
-          <div className="space-y-2">
-            <Label>Note informative <span className="text-xs font-normal text-muted-foreground">(facultatif)</span></Label>
-            <Input value={grid.notes} onChange={(e) => setGrid((prev) => ({ ...prev, notes: e.target.value }))} placeholder="Ex : Tarifs indicatifs, devis possible selon épaisseur" className="text-sm" />
-          </div>
         </div>
       )}
+
+      {/* Suppléments — affichés pour prix fixe et grille */}
+      <div className="space-y-2 rounded-lg border p-4">
+        <Label>
+          Suppléments optionnels{' '}
+          <span className="text-xs font-normal text-muted-foreground">(facultatif)</span>
+        </Label>
+        {grid.addons.map((addon) => (
+          <div key={addon.id} className="flex items-center gap-2">
+            <Input
+              value={addon.label}
+              onChange={(e) => setGrid((prev) => ({ ...prev, addons: prev.addons.map((a) => a.id === addon.id ? { ...a, label: e.target.value } : a) }))}
+              placeholder="Ex : Pose de perles"
+              className="h-8 flex-1 text-sm"
+            />
+            <div className="relative w-28">
+              <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">+€</span>
+              <Input
+                type="number" min="0" step="0.01"
+                value={addon.price}
+                onChange={(e) => setGrid((prev) => ({ ...prev, addons: prev.addons.map((a) => a.id === addon.id ? { ...a, price: e.target.value } : a) }))}
+                placeholder="0"
+                className="h-8 pl-8 text-sm"
+              />
+            </div>
+            <button type="button" onClick={() => setGrid((prev) => ({ ...prev, addons: prev.addons.filter((a) => a.id !== addon.id) }))} className="text-lg leading-none text-muted-foreground hover:text-destructive">×</button>
+          </div>
+        ))}
+        <button type="button" onClick={() => setGrid((prev) => ({ ...prev, addons: [...prev.addons, { id: uid(), label: '', price: '' }] }))} className="text-sm text-primary hover:underline">
+          + Ajouter un supplément
+        </button>
+        <div className="pt-2 space-y-1">
+          <Label className="text-xs font-normal text-muted-foreground">Note informative (facultatif)</Label>
+          <Input value={grid.notes} onChange={(e) => setGrid((prev) => ({ ...prev, notes: e.target.value }))} placeholder="Ex : Tarifs indicatifs, devis possible selon épaisseur" className="text-sm" />
+        </div>
+      </div>
     </div>
   );
 }

@@ -52,8 +52,13 @@ function StepHeader({ n, total, title }: { n: number; total: number; title: stri
 
 export function ReservationFlow({ service, availableSlots, priceMatrixJson, paypalLink, products }: Props) {
   const matrix = parsePriceMatrix(priceMatrixJson);
-  const [selectedOptions, setSelectedOptions] = useState<SelectedOptions | null>(null);
-  const [priceCents, setPriceCents] = useState<number | null>(null);
+  const isFixedMatrix = matrix?.type === 'fixed';
+  const [selectedOptions, setSelectedOptions] = useState<SelectedOptions | null>(
+    isFixedMatrix ? { type: 'fixed', optionIds: [] } : null
+  );
+  const [priceCents, setPriceCents] = useState<number | null>(
+    isFixedMatrix ? service.priceCents : null
+  );
   const [selectedSlot, setSelectedSlot] = useState<AvailableSlot | null>(null);
   const [selectedProducts, setSelectedProducts] = useState<SelectedProduct[] | null>(null);
   const [infoData, setInfoData] = useState<InfoData | null>(null);
@@ -65,7 +70,7 @@ export function ReservationFlow({ service, availableSlots, priceMatrixJson, payp
 
   const hasMatrix = matrix !== null;
   const hasProducts = products.length > 0;
-  const optionsReady = !hasMatrix || selectedOptions !== null;
+  const optionsReady = !hasMatrix || isFixedMatrix || selectedOptions !== null;
 
   let stepN = 0;
   const slotStepN = (hasMatrix ? ++stepN : stepN) + 1;
@@ -75,13 +80,17 @@ export function ReservationFlow({ service, availableSlots, priceMatrixJson, payp
   const totalSteps = paymentStepN;
 
   const estimatedDurationMinutes = useMemo(() => {
-    if (!matrix || !selectedOptions) return null;
+    if (!matrix || !selectedOptions || selectedOptions.type === 'fixed') return null;
     try { return getDurationMinutes(matrix, selectedOptions) ?? null; } catch { return null; }
   }, [matrix, selectedOptions]);
 
   const optionsSummary = useMemo(() => {
     if (!matrix || !selectedOptions) return null;
-    const { size, length, optionIds, withExtension } = selectedOptions as { size?: string; length?: string; optionIds?: string[]; withExtension?: boolean };
+    if (selectedOptions.type === 'fixed') {
+      const optLabels = selectedOptions.optionIds.map((id) => matrix.options.find((o) => o.id === id)?.label).filter(Boolean);
+      return optLabels.length > 0 ? optLabels.join(' · ') : null;
+    }
+    const { size, length, optionIds, withExtension } = selectedOptions;
     const optLabels = (optionIds ?? []).map((id) => matrix.options.find((o) => o.id === id)?.label).filter(Boolean);
     const extLabel = withExtension !== undefined ? (withExtension ? 'Avec extension' : 'Sans extension') : null;
     return [extLabel, size, length, ...optLabels].filter(Boolean).join(' · ') || null;
@@ -128,6 +137,7 @@ export function ReservationFlow({ service, availableSlots, priceMatrixJson, payp
           <StepHeader n={1} total={totalSteps} title="Vos options" />
           <PriceConfigurator
             matrix={matrix}
+            basePriceCents={service.priceCents}
             onChange={(opts, price) => {
               setSelectedOptions(opts);
               setPriceCents(price);

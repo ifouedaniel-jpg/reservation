@@ -49,12 +49,20 @@ export default async function FormulaireReservationPage({ params, searchParams }
     if (matrix) {
       try {
         const opts = selectedOptionsSchema.parse(JSON.parse(selectedOptionsJson))
-        priceCentsAtBooking = calculatePrice(matrix, opts)
-        estimatedDurationMinutes = getDurationMinutes(matrix, opts)
-        const optLabels = opts.optionIds
-          .map((id) => matrix.options.find((o) => o.id === id)?.label)
-          .filter(Boolean)
-        optionsSummary = [opts.size, opts.length, ...optLabels].join(' · ')
+        if (opts.type === 'fixed') {
+          priceCentsAtBooking = calculatePrice(matrix, opts, service.priceCents)
+          const optLabels = opts.optionIds
+            .map((id) => matrix.options.find((o) => o.id === id)?.label)
+            .filter(Boolean)
+          optionsSummary = optLabels.length > 0 ? optLabels.join(' · ') : null
+        } else {
+          priceCentsAtBooking = calculatePrice(matrix, opts)
+          estimatedDurationMinutes = getDurationMinutes(matrix, opts)
+          const optLabels = opts.optionIds
+            .map((id) => matrix.options.find((o) => o.id === id)?.label)
+            .filter(Boolean)
+          optionsSummary = [opts.size, opts.length, ...optLabels].join(' · ')
+        }
       } catch {
         // fall back to base price/duration
       }
