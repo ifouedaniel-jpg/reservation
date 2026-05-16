@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import bcrypt from 'bcryptjs';
 
 const mockAuth = vi.hoisted(() => vi.fn());
-const mockFindUnique = vi.hoisted(() => vi.fn());
+const mockFindFirst = vi.hoisted(() => vi.fn());
 const mockRedirect = vi.hoisted(() =>
   vi.fn(() => {
     throw new Error('NEXT_REDIRECT');
@@ -16,7 +16,7 @@ vi.mock('next/navigation', () => ({
 vi.mock('@/lib/db', () => ({
   prisma: {
     admin: {
-      findUnique: mockFindUnique,
+      findFirst: mockFindFirst,
     },
   },
 }));
@@ -69,14 +69,14 @@ describe('findAndVerifyAdmin (authorize callback logic)', () => {
   });
 
   it('returns null when admin not found', async () => {
-    mockFindUnique.mockResolvedValue(null);
+    mockFindFirst.mockResolvedValue(null);
     const result = await findAndVerifyAdmin('unknown@test.com', 'password');
     expect(result).toBeNull();
   });
 
   it('returns null for wrong password', async () => {
     const passwordHash = await bcrypt.hash('correctpassword', 12);
-    mockFindUnique.mockResolvedValue({
+    mockFindFirst.mockResolvedValue({
       id: '1',
       email: 'admin@test.com',
       passwordHash,
@@ -90,7 +90,7 @@ describe('findAndVerifyAdmin (authorize callback logic)', () => {
 
   it('returns user data for correct credentials', async () => {
     const passwordHash = await bcrypt.hash('secret123', 12);
-    mockFindUnique.mockResolvedValue({
+    mockFindFirst.mockResolvedValue({
       id: 'admin-id-1',
       email: 'admin@test.com',
       passwordHash,
