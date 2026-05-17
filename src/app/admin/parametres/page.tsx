@@ -1,15 +1,17 @@
 import { requireAdmin } from '@/lib/auth';
-import { getPaypalLink, getBookingInfos } from '@/server/actions/settings';
+import { getPaypalLink, getBookingInfos, getMessageTemplates } from '@/server/actions/settings';
 import PaypalLinkForm from './PaypalLinkForm';
 import BookingInfoForm from './BookingInfoForm';
+import MessageTemplatesForm from './MessageTemplatesForm';
 
 export const metadata = { title: 'Paramètres — Admin' };
 
 export default async function ParametresPage() {
   await requireAdmin();
-  const [paypalLink, bookingInfos] = await Promise.all([
+  const [paypalLink, bookingInfos, templates] = await Promise.all([
     getPaypalLink(),
     getBookingInfos(),
+    getMessageTemplates(),
   ]);
 
   return (
@@ -42,6 +44,20 @@ export default async function ParametresPage() {
           />
         </section>
       </div>
+
+      <section className="rounded-xl border p-6 space-y-4">
+        <div className="space-y-1">
+          <h2 className="text-base font-medium">Messages WhatsApp</h2>
+          <p className="text-sm text-muted-foreground">
+            Templates envoyés automatiquement lors des changements de statut de réservation.
+          </p>
+        </div>
+        <MessageTemplatesForm
+          confirmed={templates.confirmed}
+          rejected={templates.rejected}
+          cancelled={templates.cancelled}
+        />
+      </section>
     </div>
   );
 }

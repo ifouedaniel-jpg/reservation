@@ -64,3 +64,39 @@ export async function updateBookingInfos(raw: z.infer<typeof bookingInfoSchema>)
   revalidatePath('/reserver', 'layout');
   return { ok: true };
 }
+
+// ── Templates messages WhatsApp ────────────────────────────────────────────────
+
+import { DEFAULT_TEMPLATES, type MessageTemplates } from '@/notifications/messages';
+
+export async function getMessageTemplates(): Promise<MessageTemplates> {
+  const [confirmed, rejected, cancelled] = await Promise.all([
+    getSetting('msg_tpl_confirmed'),
+    getSetting('msg_tpl_rejected'),
+    getSetting('msg_tpl_cancelled'),
+  ]);
+  return {
+    confirmed: confirmed ?? DEFAULT_TEMPLATES.confirmed,
+    rejected: rejected ?? DEFAULT_TEMPLATES.rejected,
+    cancelled: cancelled ?? DEFAULT_TEMPLATES.cancelled,
+  };
+}
+
+const messageTemplatesSchema = z.object({
+  confirmed: z.string().min(1).max(2000),
+  rejected: z.string().min(1).max(2000),
+  cancelled: z.string().min(1).max(2000),
+});
+
+export async function updateMessageTemplates(raw: z.infer<typeof messageTemplatesSchema>): Promise<SettingsResult> {
+  await requireAdmin();
+  const parsed = messageTemplatesSchema.safeParse(raw);
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? 'Données invalides' };
+  await Promise.all([
+    setSetting('msg_tpl_confirmed', parsed.data.confirmed),
+    setSetting('msg_tpl_rejected', parsed.data.rejected),
+    setSetting('msg_tpl_cancelled', parsed.data.cancelled),
+  ]);
+  revalidatePath('/admin/parametres');
+  return { ok: true };
+}

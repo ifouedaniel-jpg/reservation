@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/db';
+import { getSetting } from '@/lib/settings';
 import { buildWhatsappLink } from './whatsapp';
-import { buildNotificationContent, type NotificationType } from './messages';
+import { buildNotificationContent, DEFAULT_TEMPLATES, type NotificationType } from './messages';
 
 export type DispatchResult = {
   notificationId: string;
@@ -19,7 +20,18 @@ export async function dispatch(bookingId: string, type: NotificationType): Promi
     return null;
   }
 
-  const { text } = buildNotificationContent(type, booking);
+  const [tplConfirmed, tplRejected, tplCancelled] = await Promise.all([
+    getSetting('msg_tpl_confirmed'),
+    getSetting('msg_tpl_rejected'),
+    getSetting('msg_tpl_cancelled'),
+  ]);
+  const templates = {
+    confirmed: tplConfirmed ?? DEFAULT_TEMPLATES.confirmed,
+    rejected: tplRejected ?? DEFAULT_TEMPLATES.rejected,
+    cancelled: tplCancelled ?? DEFAULT_TEMPLATES.cancelled,
+  };
+
+  const { text } = buildNotificationContent(type, booking, templates);
 
   let status: string;
   let payload: string;
